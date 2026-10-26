@@ -12,11 +12,18 @@ import {
  */
 const PICKER_TRANSFER_TYPE = "TRANSFER";
 
+/** Picker alias for a same-account swap, saved as a SELL and a BUY. */
+const PICKER_SWAP_TYPE = "SWAP";
+
 /**
  * All activity types in picker-compatible format.
  * Includes TRANSFER as UI alias for TRANSFER_IN/TRANSFER_OUT.
  */
-const ALL_PICKER_TYPES: readonly string[] = [...ACTIVITY_TYPES, PICKER_TRANSFER_TYPE];
+const ALL_PICKER_TYPES: readonly string[] = [
+  ...ACTIVITY_TYPES,
+  PICKER_TRANSFER_TYPE,
+  PICKER_SWAP_TYPE,
+];
 
 /**
  * Activity types allowed for manual HOLDINGS tracking mode accounts.

@@ -5,6 +5,7 @@ import {
   logger,
   saveActivities,
   saveInternalTransferPair,
+  saveSwap,
   unlinkTransferActivities,
   updateActivity,
 } from "@/adapters";
@@ -18,6 +19,8 @@ import {
   ActivityUpdate,
   InternalTransferPairRequest,
   InternalTransferPairResponse,
+  SwapRequest,
+  SwapResponse,
 } from "@/lib/types";
 import { isSecuritiesTransfer } from "@/lib/activity-utils";
 import { ActivityType, InstrumentType } from "@/lib/constants";
@@ -474,6 +477,22 @@ export function useActivityMutations(
     },
   });
 
+  const saveSwapMutation = useMutation({
+    mutationFn: async (request: SwapRequest) => {
+      return await saveSwap(request);
+    },
+    onSuccess: (result: SwapResponse) => {
+      queryClient.invalidateQueries();
+      if (onSuccess) onSuccess({ accountId: result.sell.accountId });
+    },
+    onError: (error: string) => {
+      logger.error(`Error saving swap: ${String(error)}`);
+      toast.error("Failed to save swap", {
+        description: String(error),
+      });
+    },
+  });
+
   return {
     addActivityMutation,
     updateActivityMutation,
@@ -481,6 +500,7 @@ export function useActivityMutations(
     duplicateActivityMutation,
     saveActivitiesMutation,
     saveInternalTransferPairMutation,
+    saveSwapMutation,
     linkTransferActivitiesMutation,
     unlinkTransferActivitiesMutation,
   };

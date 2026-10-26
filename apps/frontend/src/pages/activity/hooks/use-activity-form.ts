@@ -2,13 +2,19 @@ import { getTransferPairForActivity, logger } from "@/adapters";
 import { buildAssetResolutionInput } from "@/lib/asset-resolution-input";
 import { ActivityStatus, ActivityType } from "@/lib/constants";
 import { generateId } from "@/lib/id";
-import type { ActivityCreate, ActivityDetails, ActivityUpdate } from "@/lib/types";
+import type {
+  ActivityCreate,
+  ActivityDetails,
+  ActivityUpdate,
+  AssetResolutionInput,
+} from "@/lib/types";
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import type { AccountSelectOption } from "../components/forms/fields";
 import type { NewActivityFormValues } from "../components/forms/schemas";
 import type { TransferFormValues } from "../components/forms/transfer-form";
 import type { AdjustmentFormValues } from "../components/forms/adjustment-form";
+import type { SwapFormValues } from "../components/forms/swap-form";
 import {
   ACTIVITY_FORM_CONFIG,
   type ActivityFormValues,
@@ -49,6 +55,44 @@ function transferPairIds(activity: Partial<ActivityDetails> | undefined): {
   };
 }
 
+/** One side of a swap form as the backend's asset resolution input. */
+function swapAssetInput(swap: SwapFormValues, side: "from" | "to"): AssetResolutionInput {
+  const picked =
+    side === "from"
+      ? {
+          symbol: swap.fromSymbol,
+          existingAssetId: swap.fromExistingAssetId,
+          exchangeMic: swap.fromExchangeMic,
+          quoteMode: swap.fromQuoteMode,
+          quoteCcy: swap.fromQuoteCcy,
+          instrumentType: swap.fromInstrumentType,
+          metadata: swap.fromAssetMetadata,
+        }
+      : {
+          symbol: swap.toSymbol,
+          existingAssetId: swap.toExistingAssetId,
+          exchangeMic: swap.toExchangeMic,
+          quoteMode: swap.toQuoteMode,
+          quoteCcy: swap.toQuoteCcy,
+          instrumentType: swap.toInstrumentType,
+          metadata: swap.toAssetMetadata,
+        };
+  return (
+    buildAssetResolutionInput({
+      id: picked.existingAssetId,
+      symbol: picked.symbol,
+      exchangeMic: picked.exchangeMic,
+      kind: picked.metadata?.kind,
+      name: picked.metadata?.name,
+      quoteMode: picked.quoteMode,
+      quoteCcy: picked.quoteCcy,
+      instrumentType: picked.instrumentType,
+      providerId: picked.metadata?.providerId,
+      providerSymbol: picked.metadata?.providerSymbol,
+    }) ?? { symbol: picked.symbol }
+  );
+}
+
 export interface UseActivityFormParams {
   accounts: AccountSelectOption[];
   activity?: Partial<ActivityDetails>;
@@ -86,6 +130,7 @@ export function useActivityForm({
     updateActivityMutation,
     saveActivitiesMutation,
     saveInternalTransferPairMutation,
+    saveSwapMutation,
     unlinkTransferActivitiesMutation,
   } = useActivityMutations(onSuccess);
 
@@ -95,18 +140,21 @@ export function useActivityForm({
     updateActivityMutation.isPending ||
     saveActivitiesMutation.isPending ||
     saveInternalTransferPairMutation.isPending ||
+    saveSwapMutation.isPending ||
     unlinkTransferActivitiesMutation.isPending;
   const error =
     addActivityMutation.error ??
     updateActivityMutation.error ??
     saveActivitiesMutation.error ??
     saveInternalTransferPairMutation.error ??
+    saveSwapMutation.error ??
     unlinkTransferActivitiesMutation.error;
   const isError =
     addActivityMutation.isError ||
     updateActivityMutation.isError ||
     saveActivitiesMutation.isError ||
     saveInternalTransferPairMutation.isError ||
+    saveSwapMutation.isError ||
     unlinkTransferActivitiesMutation.isError;
 
   // Get config for selected type (undefined if no type selected)
@@ -124,6 +172,24 @@ export function useActivityForm({
       if (!config) return;
 
       try {
+        // A swap is saved as a SELL and a BUY in one call.
+        if (selectedType === "SWAP") {
+          const swap = formData as SwapFormValues;
+          await saveSwapMutation.mutateAsync({
+            accountId: swap.accountId,
+            activityDate: swap.activityDate,
+            currency: swap.currency,
+            fromAsset: swapAssetInput(swap, "from"),
+            fromQuantity: swap.fromQuantity,
+            fromUnitPrice: swap.unitPrice,
+            feeQuantity: swap.feeQuantity ?? null,
+            toAsset: swapAssetInput(swap, "to"),
+            toQuantity: swap.toQuantity,
+            notes: swap.comment ?? null,
+          });
+          return;
+        }
+
         // Handle internal transfers specially - need to create two activities
         if (selectedType === "TRANSFER") {
           const transferData = formData as TransferFormValues;
@@ -394,6 +460,7 @@ export function useActivityForm({
       updateActivityMutation,
       saveActivitiesMutation,
       saveInternalTransferPairMutation,
+      saveSwapMutation,
       unlinkTransferActivitiesMutation,
     ],
   );

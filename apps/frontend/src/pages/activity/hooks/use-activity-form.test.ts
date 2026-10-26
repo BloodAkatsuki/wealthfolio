@@ -10,6 +10,7 @@ const mutationMocks = vi.hoisted(() => ({
   updateMutateAsync: vi.fn(),
   saveMutateAsync: vi.fn(),
   savePairMutateAsync: vi.fn(),
+  saveSwapMutateAsync: vi.fn(),
   unlinkMutateAsync: vi.fn(),
 }));
 
@@ -51,6 +52,12 @@ vi.mock("./use-activity-mutations", () => ({
       error: null,
       isError: false,
     },
+    saveSwapMutation: {
+      mutateAsync: mutationMocks.saveSwapMutateAsync,
+      isPending: false,
+      error: null,
+      isError: false,
+    },
     unlinkTransferActivitiesMutation: {
       mutateAsync: mutationMocks.unlinkMutateAsync,
       isPending: false,
@@ -72,6 +79,7 @@ describe("useActivityForm", () => {
     mutationMocks.updateMutateAsync.mockResolvedValue({});
     mutationMocks.saveMutateAsync.mockResolvedValue({});
     mutationMocks.savePairMutateAsync.mockResolvedValue({});
+    mutationMocks.saveSwapMutateAsync.mockResolvedValue({});
     mutationMocks.unlinkMutateAsync.mockResolvedValue({});
     adapterMocks.getTransferPairForActivity.mockReset();
     adapterMocks.loggerError.mockReset();
@@ -546,5 +554,44 @@ describe("useActivityForm", () => {
         metadata: { flow: { is_external: true } },
       }),
     );
+  });
+
+  it("saves a swap as one request carrying both assets", async () => {
+    const { result } = renderHook(() => useActivityForm({ accounts, selectedType: "SWAP" }));
+    const activityDate = new Date("2026-10-01T12:00:00Z");
+
+    await act(async () => {
+      await result.current.handleSubmit({
+        accountId: "acc-usd",
+        activityDate,
+        currency: "USD",
+        fromSymbol: "SOL",
+        fromExistingAssetId: "asset-sol",
+        fromInstrumentType: "CRYPTOCURRENCY",
+        fromQuantity: 10,
+        unitPrice: 150,
+        feeQuantity: 0.01,
+        toSymbol: "JITOSOL",
+        toQuoteCcy: "USD",
+        toAssetMetadata: { name: "Jito Staked SOL" },
+        toQuantity: 9.2,
+        comment: "Stake via Jito",
+      } as ActivityFormValues);
+    });
+
+    expect(mutationMocks.saveSwapMutateAsync).toHaveBeenCalledWith({
+      accountId: "acc-usd",
+      activityDate,
+      currency: "USD",
+      fromAsset: { id: "asset-sol", symbol: "SOL", instrumentType: "CRYPTOCURRENCY" },
+      fromQuantity: 10,
+      fromUnitPrice: 150,
+      feeQuantity: 0.01,
+      toAsset: { symbol: "JITOSOL", quoteCcy: "USD", name: "Jito Staked SOL" },
+      toQuantity: 9.2,
+      notes: "Stake via Jito",
+    });
+    expect(mutationMocks.addMutateAsync).not.toHaveBeenCalled();
+    expect(mutationMocks.saveMutateAsync).not.toHaveBeenCalled();
   });
 });

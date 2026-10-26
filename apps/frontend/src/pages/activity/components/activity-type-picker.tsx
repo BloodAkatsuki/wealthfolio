@@ -21,6 +21,7 @@ export type PrimaryActivityType =
   | typeof CanonicalActivityType.DIVIDEND
   | "TRANSFER";
 export type SecondaryActivityType =
+  | "SWAP"
   | typeof CanonicalActivityType.SPLIT
   | typeof CanonicalActivityType.FEE
   | typeof CanonicalActivityType.INTEREST
@@ -55,6 +56,7 @@ const PRIMARY_ACTIVITY_TYPES: ActivityTypeConfig<PrimaryActivityType>[] = [
 ];
 
 const SECONDARY_ACTIVITY_TYPES: ActivityTypeConfig<SecondaryActivityType>[] = [
+  { value: "SWAP", labelKey: "activity:picker.swap", icon: "RefreshCw" },
   { value: CanonicalActivityType.SPLIT, labelKey: "activity:picker.split", icon: "Split" },
   { value: CanonicalActivityType.FEE, labelKey: "activity:type_fee", icon: "Receipt" },
   { value: CanonicalActivityType.INTEREST, labelKey: "activity:type_interest", icon: "Percent" },

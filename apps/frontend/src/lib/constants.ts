@@ -444,6 +444,9 @@ export const ACTIVITY_SUBTYPES = {
   POSITION_OPEN: "POSITION_OPEN",
   // POSITION_CLOSE: closes or reduces an existing long/short position
   POSITION_CLOSE: "POSITION_CLOSE",
+  // SWAP: a leg of a same-account swap (SELL of the given asset, BUY of the
+  // received one), saved together through save_swap
+  SWAP: "SWAP",
 } as const;
 
 export type ActivitySubtype = (typeof ACTIVITY_SUBTYPES)[keyof typeof ACTIVITY_SUBTYPES];
@@ -509,6 +512,7 @@ export const SUBTYPE_DISPLAY_NAMES: Record<string, string> = {
   [ACTIVITY_SUBTYPES.NOTIONAL_DISTRIBUTION]: "Notional Distribution",
   [ACTIVITY_SUBTYPES.POSITION_OPEN]: "Open Position",
   [ACTIVITY_SUBTYPES.POSITION_CLOSE]: "Close Position",
+  [ACTIVITY_SUBTYPES.SWAP]: "Swap",
 };
 
 // Suggested subtypes per activity type

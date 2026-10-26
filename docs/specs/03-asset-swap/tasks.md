@@ -25,7 +25,13 @@ Engine-Änderung (CARRYOVER) einholen. REALIZE kann unabhängig davon starten.
     würde der Duplikat-Check die noch vorhandenen alten Legs treffen.
 - [x] **T5 – Wiring Tauri/Axum/Web + Paritätstest** (R3.18) – Wiring erledigt;
       Paritätstest und Tauri-Kompilierung noch nicht ausgeführt (siehe Status).
-- [ ] **T6 – UI-Formular + Listenanzeige + i18n** (R3.1, R3.18)
+- [x] **T6 – UI-Formular + Listenanzeige + i18n** (R3.1, R3.18) – Formular
+      „Tausch“ (Desktop) mit Live-Anzeige von Tauschwert und Einstand, Typ in
+      der Auswahl, Speichern über `save_swap`, Subtyp-Name, 11 Sprachen.
+      Bearbeiten eines Swap-Legs zeigt auf Desktop und Mobil einen Hinweis
+      (löschen und neu erfassen) statt eines Einzel-Editors. Offen: Erfassen auf
+      Mobil, Bearbeiten als Ganzes, Sperre der Inline-Bearbeitung im
+      Aktivitäts-Grid.
 - [ ] **T7 – Import-Verknüpfung REALIZE** (R3.17)
 
 ## Phase 2 – CARRYOVER (Engine)

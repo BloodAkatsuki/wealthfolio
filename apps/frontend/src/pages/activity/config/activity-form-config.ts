@@ -22,6 +22,7 @@ import { InterestForm, type InterestFormValues } from "../components/forms/inter
 import { TaxForm, type TaxFormValues } from "../components/forms/tax-form";
 import { CreditForm, type CreditFormValues } from "../components/forms/credit-form";
 import { AdjustmentForm, type AdjustmentFormValues } from "../components/forms/adjustment-form";
+import { SwapForm, type SwapFormValues } from "../components/forms/swap-form";
 import type { AccountSelectOption } from "../components/forms/fields";
 import type { NewActivityFormValues } from "../components/forms/schemas";
 
@@ -33,6 +34,7 @@ export type PickerActivityType =
   | typeof ActivityType.WITHDRAWAL
   | typeof ActivityType.DIVIDEND
   | "TRANSFER"
+  | "SWAP"
   | typeof ActivityType.SPLIT
   | typeof ActivityType.FEE
   | typeof ActivityType.INTEREST
@@ -53,7 +55,8 @@ export type ActivityFormValues =
   | InterestFormValues
   | TaxFormValues
   | CreditFormValues
-  | AdjustmentFormValues;
+  | AdjustmentFormValues
+  | SwapFormValues;
 
 // Common form props interface
 export interface ActivityFormComponentProps<T> {
@@ -408,6 +411,15 @@ export const ACTIVITY_FORM_CONFIG: Record<
           : undefined,
       };
     },
+  },
+
+  // Saved through save_swap as a SELL and a BUY; the submit handler builds the
+  // request, so the payload transform is unused.
+  SWAP: {
+    component: SwapForm as ComponentType<ActivityFormComponentProps<ActivityFormValues>>,
+    activityType: ActivityType.SELL,
+    getDefaults: (activity, accounts) => getBaseDefaults(activity, accounts),
+    toPayload: () => ({}),
   },
 
   TRANSFER: {
