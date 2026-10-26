@@ -8,10 +8,14 @@ import { useMemo } from "react";
 import { FormProvider, useForm, type Resolver } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
+import { useSettings } from "@/hooks/use-settings";
+import { ActivityType } from "@/lib/constants";
+import { normalizeCurrency } from "@/lib/utils";
 import { invalidTypeError, requiredError } from "@/lib/zod-errors";
 import { useActivityCurrency } from "../../hooks/use-activity-currency";
 import {
   AccountSelect,
+  AdvancedOptionsSection,
   AmountInput,
   createValidatedSubmit,
   DatePicker,
@@ -152,6 +156,7 @@ export function SwapForm({
 }: SwapFormProps) {
   const { t } = useTranslation(["activity"]);
   const { formatAmount } = useAmountFormatting();
+  const { data: settings } = useSettings();
   const schema = useMemo(() => createSwapFormSchema(t), [t]);
 
   const initialAccountId =
@@ -184,6 +189,8 @@ export function SwapForm({
     toQuantity: watch("toQuantity"),
   });
   const toSymbol = watch("toSymbol");
+  const accountCurrency = accounts.find((a) => a.value === watch("accountId"))?.currency;
+  const fromQuoteCcy = normalizeCurrency(watch("fromQuoteCcy") ?? undefined)?.toUpperCase();
 
   const handleSubmit = createValidatedSubmit(form, async (data) => {
     await onSubmit(data);
@@ -276,9 +283,24 @@ export function SwapForm({
           <p className="text-muted-foreground text-xs">{t("activity:form.swap_realize_hint")}</p>
         </FormSection>
 
-        <FormSection title={t("activity:form.label_notes")}>
-          <NotesInput name="comment" placeholder={t("activity:form.placeholder_note")} />
-        </FormSection>
+        {/* Price currency and notes, collapsed by default, as on trades */}
+        <AdvancedOptionsSection
+          title={t("activity:form.section_advanced_notes")}
+          dashed
+          currencyName="currency"
+          activityType={ActivityType.SELL}
+          assetCurrency={fromQuoteCcy}
+          accountCurrency={accountCurrency}
+          baseCurrency={settings?.baseCurrency}
+          showFxRate={false}
+          showSubtype={false}
+        >
+          <NotesInput
+            name="comment"
+            label={t("activity:form.label_notes")}
+            placeholder={t("activity:form.placeholder_note")}
+          />
+        </AdvancedOptionsSection>
 
         <div className="flex justify-end gap-2">
           {onCancel && (
