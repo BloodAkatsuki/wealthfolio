@@ -72,7 +72,14 @@ impl FxService {
     }
 
     fn load_latest_exchange_rate(&self, from: &str, to: &str) -> Result<ExchangeRate> {
-        match self.repository.get_latest_exchange_rate(from, to)? {
+        // A non-positive rate converts nothing correctly and cannot be inverted,
+        // so it counts as no rate at all.
+        let usable = |rate: &ExchangeRate| rate.rate > Decimal::ZERO;
+        match self
+            .repository
+            .get_latest_exchange_rate(from, to)?
+            .filter(usable)
+        {
             Some(rate) => Ok(rate),
             None => {
                 // Try inverse rate via instrument_key
@@ -80,6 +87,7 @@ impl FxService {
                 match self
                     .repository
                     .get_latest_exchange_rate_by_symbol(&inverse_key)?
+                    .filter(usable)
                 {
                     Some(inverse_rate) => {
                         let direct_rate = ExchangeRate {
@@ -185,6 +193,15 @@ impl FxServiceTrait for FxService {
     }
 
     async fn add_exchange_rate(&self, new_rate: NewExchangeRate) -> Result<ExchangeRate> {
+        // Checked before the FX asset exists, so a rejected rate leaves nothing behind.
+        if new_rate.source == DATA_SOURCE_MANUAL && new_rate.rate <= Decimal::ZERO {
+            return Err(FxError::InvalidRate(format!(
+                "{}/{} rate must be positive",
+                new_rate.from_currency, new_rate.to_currency
+            ))
+            .into());
+        }
+
         // Create/get the FX asset — returns the asset UUID
         let asset_id = self
             .repository
@@ -469,6 +486,7 @@ mod tests {
         created_pairs: Mutex<Vec<(String, String, String)>>,
         saved_rates: Mutex<Vec<ExchangeRate>>,
         historical_rates: Mutex<Vec<ExchangeRate>>,
+        latest_by_symbol: Mutex<Option<ExchangeRate>>,
     }
 
     #[async_trait]
@@ -489,7 +507,7 @@ mod tests {
             &self,
             _symbol: &str,
         ) -> Result<Option<ExchangeRate>> {
-            Ok(None)
+            Ok(self.latest_by_symbol.lock().unwrap().clone())
         }
 
         fn get_historical_quotes(
@@ -656,6 +674,86 @@ mod tests {
             1,
             "provider-backed add should still register the FX asset for syncing"
         );
+    }
+
+    #[tokio::test]
+    async fn add_exchange_rate_rejects_non_positive_manual_rate() {
+        for rate in [Decimal::ZERO, Decimal::NEGATIVE_ONE] {
+            let repo = Arc::new(MockFxRepository::default());
+            let service = FxService::new(repo.clone());
+
+            let result = service
+                .add_exchange_rate(NewExchangeRate {
+                    from_currency: "EUR".to_string(),
+                    to_currency: "USD".to_string(),
+                    rate,
+                    source: DATA_SOURCE_MANUAL.to_string(),
+                })
+                .await;
+
+            assert!(
+                matches!(result, Err(crate::Error::Fx(FxError::InvalidRate(_)))),
+                "rate {rate} must be rejected"
+            );
+            assert!(
+                repo.created_pairs.lock().unwrap().is_empty(),
+                "a rejected rate must not create an FX asset"
+            );
+            assert!(repo.saved_rates.lock().unwrap().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn update_exchange_rate_rejects_zero_rate() {
+        let repo = Arc::new(MockFxRepository::default());
+        let service = FxService::new(repo.clone());
+
+        let result = service
+            .update_exchange_rate("EUR", "USD", Decimal::ZERO)
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(crate::Error::Fx(FxError::InvalidRate(_)))
+        ));
+        assert!(repo.saved_rates.lock().unwrap().is_empty());
+    }
+
+    /// A stored inverse rate of zero used to reach `Decimal::ONE / 0`, which
+    /// panics in rust_decimal.
+    #[test]
+    fn zero_inverse_rate_is_not_found_instead_of_panicking() {
+        let repo = Arc::new(MockFxRepository::default());
+        *repo.latest_by_symbol.lock().unwrap() = Some(make_historical_rate(
+            "EUR",
+            "USD",
+            Decimal::ZERO,
+            NaiveDate::from_ymd_opt(2026, 5, 18).unwrap(),
+        ));
+        let service = FxService::new(repo);
+
+        let result = service.get_latest_exchange_rate("USD", "EUR");
+
+        assert!(matches!(
+            result,
+            Err(crate::Error::Fx(FxError::RateNotFound(_)))
+        ));
+    }
+
+    #[test]
+    fn positive_inverse_rate_is_inverted() {
+        let repo = Arc::new(MockFxRepository::default());
+        *repo.latest_by_symbol.lock().unwrap() = Some(make_historical_rate(
+            "EUR",
+            "USD",
+            Decimal::new(125, 2),
+            NaiveDate::from_ymd_opt(2026, 5, 18).unwrap(),
+        ));
+        let service = FxService::new(repo);
+
+        let rate = service.get_latest_exchange_rate("USD", "EUR").unwrap();
+
+        assert_eq!(rate, Decimal::new(8, 1));
     }
 
     fn make_historical_rate(from: &str, to: &str, rate: Decimal, date: NaiveDate) -> ExchangeRate {

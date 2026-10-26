@@ -35,7 +35,8 @@ impl CurrencyConverter {
     /// Automatically handles inverses and graph connectivity.
     pub fn add_historical_rates(&mut self, rates: Vec<ExchangeRate>) {
         for rate in rates {
-            if rate.from_currency == rate.to_currency {
+            // A non-positive rate would convert to zero or a negative amount.
+            if rate.from_currency == rate.to_currency || rate.rate <= Decimal::ZERO {
                 continue;
             }
 
@@ -55,19 +56,17 @@ impl CurrencyConverter {
                 .or_default()
                 .insert(rate.to_currency.clone());
 
-            // 2. Store Inverse Rate (if valid)
-            if !forward_rate.is_zero() {
-                let inverse_rate = Decimal::ONE / forward_rate;
-                self.rates
-                    .entry(inverse_pair)
-                    .or_default()
-                    .insert(date, inverse_rate);
+            // 2. Store Inverse Rate
+            let inverse_rate = Decimal::ONE / forward_rate;
+            self.rates
+                .entry(inverse_pair)
+                .or_default()
+                .insert(date, inverse_rate);
 
-                self.adj
-                    .entry(rate.to_currency.clone())
-                    .or_default()
-                    .insert(rate.from_currency.clone());
-            }
+            self.adj
+                .entry(rate.to_currency.clone())
+                .or_default()
+                .insert(rate.from_currency.clone());
         }
     }
 
@@ -211,6 +210,32 @@ mod tests {
             rate: Decimal::from_f64_retain(rate).unwrap(),
             source: "MANUAL".to_string(),
             timestamp: date_time,
+        }
+    }
+
+    #[test]
+    fn non_positive_rates_are_ignored_in_both_directions() {
+        let date = NaiveDate::from_ymd_opt(2023, 10, 25).unwrap();
+        let rates = vec![
+            make_rate("USD", "EUR", 0.0, 2023, 10, 25),
+            make_rate("USD", "JPY", -150.0, 2023, 10, 25),
+        ];
+        let converter = CurrencyConverter::new(rates).unwrap();
+
+        for (from, to) in [
+            ("USD", "EUR"),
+            ("EUR", "USD"),
+            ("USD", "JPY"),
+            ("JPY", "USD"),
+        ] {
+            assert!(
+                converter.get_rate(from, to, date).is_err(),
+                "{from}/{to} must have no rate"
+            );
+            assert!(
+                converter.get_rate_nearest(from, to, date).is_err(),
+                "{from}/{to} must have no nearest rate"
+            );
         }
     }
 

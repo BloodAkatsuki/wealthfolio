@@ -12,6 +12,7 @@ pub enum FxError {
     ConversionError(String),
     SaveError(String),
     FetchError(String),
+    InvalidRate(String),
 }
 
 impl fmt::Display for FxError {
@@ -25,6 +26,7 @@ impl fmt::Display for FxError {
             FxError::ConversionError(msg) => write!(f, "Currency conversion error: {}", msg),
             FxError::SaveError(msg) => write!(f, "Save error: {}", msg),
             FxError::FetchError(msg) => write!(f, "Fetch error: {}", msg),
+            FxError::InvalidRate(msg) => write!(f, "Invalid exchange rate: {}", msg),
         }
     }
 }

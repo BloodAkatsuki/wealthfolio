@@ -2,8 +2,9 @@
 
 ## Problem
 
-- Manuelle Wechselkurse ≤ 0 werden akzeptiert (Frontend `.min(0)`, Backend
-  ohne Prüfung).
+- Manuelle Wechselkurse ≤ 0 werden vom Backend akzeptiert. Das Frontend
+  blockiert sie bereits (`refine(rate > 0)` im Formular, `RateCell`), direkte
+  API-/Tauri-/Addon-Aufrufe aber nicht.
 - `fx_service.rs:89` bildet `Decimal::ONE / rate` ohne Nullprüfung →
   `rust_decimal` panict.
 - Das Repository wandelt unparsebare `close`-Werte still in `0` und
@@ -28,15 +29,20 @@ falsche Werte.
 - **R1.1** WENN ein manueller Kurs `rate <= 0` über `add_exchange_rate` oder
   `update_exchange_rate` gespeichert werden soll, DANN SOLL der Service mit
   einem Validierungsfehler antworten und nichts persistieren.
-- **R1.2** WENN im Formular „Wechselkurs hinzufügen“ ein Kurs `<= 0` eingegeben
-  wird, DANN SOLL das Formular die Eingabe mit einer übersetzten Meldung
-  ablehnen (alle Locales).
+- **R1.2** WENN im Formular „Wechselkurs hinzufügen“ oder in der Tabellenzelle
+  ein manueller Kurs `<= 0` eingegeben wird, DANN SOLL die Eingabe abgelehnt
+  werden. *Bereits erfüllt* (`add-exchange-rate-form.tsx` `refine`,
+  `rate-cell.tsx`); keine Änderung nötig.
 - **R1.3** WENN ein inverser Kurs aus einem gespeicherten Kurs `0` gebildet
   werden müsste, DANN SOLL das System `FxError::RateNotFound` zurückgeben statt
   zu panicken.
 - **R1.4** WENN ein gespeicherter FX-Quote einen unparsebaren oder nicht
-  positiven `close` hat, DANN SOLL das Repository diesen Quote überspringen und
-  eine Warnung loggen (Asset-ID, kein Wert), statt `0` zu liefern.
+  positiven `close` hat, DANN SOLLEN die Kurs-Lookups des Repositorys
+  (`get_all_historical_exchange_rates`, `get_exchange_rate`,
+  `get_exchange_rate_by_id`) diesen Quote überspringen und eine Warnung loggen
+  (Quote- und Asset-ID, kein Wert), statt `0` zu liefern. Die Einstellungsliste
+  (`get_exchange_rates`) behält ihr Verhalten: dort bedeutet `0` bereits
+  „noch kein Kurs“ für Provider-Paare vor dem ersten Sync.
 - **R1.5** WENN ein gespeicherter FX-Quote einen unparsebaren Zeitstempel hat,
   DANN SOLL das Repository ihn überspringen und warnen, statt `Utc::now()` zu
   verwenden.

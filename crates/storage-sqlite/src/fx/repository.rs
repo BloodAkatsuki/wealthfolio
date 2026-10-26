@@ -22,6 +22,29 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
+/// A stored FX quote's rate and time, or `None` when either cannot be trusted:
+/// an unreadable or non-positive close would convert at zero (and cannot be
+/// inverted), and an unreadable timestamp would make a stale rate look current.
+fn parse_fx_quote(quote: &QuoteDB) -> Option<(Decimal, DateTime<Utc>)> {
+    let rate = Decimal::from_str(&quote.close)
+        .ok()
+        .filter(|rate| *rate > Decimal::ZERO);
+    let timestamp = DateTime::parse_from_rfc3339(&quote.timestamp)
+        .ok()
+        .map(|dt| dt.with_timezone(&Utc));
+    match (rate, timestamp) {
+        (Some(rate), Some(timestamp)) => Some((rate, timestamp)),
+        _ => {
+            log::warn!(
+                "Skipping FX quote {} of asset {}: unreadable or non-positive rate, or unreadable timestamp",
+                quote.id,
+                quote.asset_id
+            );
+            None
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct FxRepository {
     pool: Arc<Pool<ConnectionManager<SqliteConnection>>>,
@@ -183,20 +206,17 @@ impl FxRepository {
 
         Ok(results
             .into_iter()
-            .map(|(quote_db, asset_db)| {
-                let timestamp = chrono::DateTime::parse_from_rfc3339(&quote_db.timestamp)
-                    .map(|dt| dt.with_timezone(&Utc))
-                    .unwrap_or_else(|_| Utc::now());
-                let rate = Decimal::from_str(&quote_db.close).unwrap_or(Decimal::ZERO);
+            .filter_map(|(quote_db, asset_db)| {
+                let (rate, timestamp) = parse_fx_quote(&quote_db)?;
 
-                ExchangeRate {
+                Some(ExchangeRate {
                     id: asset_db.id,
                     from_currency: asset_db.instrument_symbol.unwrap_or_default(),
                     to_currency: asset_db.quote_ccy,
                     rate,
                     source: quote_db.source.clone(),
                     timestamp,
-                }
+                })
             })
             .collect())
     }
@@ -215,20 +235,17 @@ impl FxRepository {
             .optional()
             .map_err(StorageError::from)?;
 
-        Ok(result.map(|(quote_db, asset_db)| {
-            let timestamp = chrono::DateTime::parse_from_rfc3339(&quote_db.timestamp)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now());
-            let rate = Decimal::from_str(&quote_db.close).unwrap_or(Decimal::ZERO);
+        Ok(result.and_then(|(quote_db, asset_db)| {
+            let (rate, timestamp) = parse_fx_quote(&quote_db)?;
 
-            ExchangeRate {
+            Some(ExchangeRate {
                 id: asset_db.id,
                 from_currency: asset_db.instrument_symbol.unwrap_or_default(),
                 to_currency: asset_db.quote_ccy,
                 rate,
                 source: quote_db.source.clone(),
                 timestamp,
-            }
+            })
         }))
     }
 
@@ -244,20 +261,17 @@ impl FxRepository {
             .optional()
             .map_err(StorageError::from)?;
 
-        Ok(result.map(|(quote_db, asset_db)| {
-            let timestamp = chrono::DateTime::parse_from_rfc3339(&quote_db.timestamp)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now());
-            let rate = Decimal::from_str(&quote_db.close).unwrap_or(Decimal::ZERO);
+        Ok(result.and_then(|(quote_db, asset_db)| {
+            let (rate, timestamp) = parse_fx_quote(&quote_db)?;
 
-            ExchangeRate {
+            Some(ExchangeRate {
                 id: asset_db.id,
                 from_currency: asset_db.instrument_symbol.unwrap_or_default(),
                 to_currency: asset_db.quote_ccy,
                 rate,
                 source: quote_db.source.clone(),
                 timestamp,
-            }
+            })
         }))
     }
 
@@ -544,5 +558,105 @@ impl FxRepositoryTrait for FxRepository {
     ) -> Result<String> {
         self.create_fx_asset(from_currency, to_currency, source)
             .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::{create_pool, run_migrations, write_actor::spawn_writer};
+    use tempfile::tempdir;
+
+    fn setup() -> (FxRepository, tempfile::TempDir) {
+        std::env::set_var("CONNECT_API_URL", "http://test.local");
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("test.db").to_string_lossy().to_string();
+        run_migrations(&db_path).unwrap();
+        let pool = create_pool(&db_path).unwrap();
+        let writer = spawn_writer((*pool).clone()).unwrap();
+        (FxRepository::new(pool, writer), dir)
+    }
+
+    fn execute(repo: &FxRepository, statement: &str) {
+        let mut conn = get_connection(&repo.pool).unwrap();
+        sql_query(statement).execute(&mut conn).unwrap();
+    }
+
+    fn insert_eur_usd_pair(repo: &FxRepository) {
+        execute(
+            repo,
+            "INSERT INTO assets (id, kind, instrument_type, instrument_symbol, is_active, quote_mode, \
+             quote_ccy, created_at, updated_at) \
+             VALUES ('fx-eur', 'FX', 'FX', 'EUR', 1, 'MANUAL', 'USD', datetime('now'), datetime('now'))",
+        );
+    }
+
+    fn insert_quote(repo: &FxRepository, id: &str, day: &str, close: &str, timestamp: &str) {
+        execute(
+            repo,
+            &format!(
+                "INSERT INTO quotes (id, asset_id, day, source, close, currency, created_at, timestamp) \
+                 VALUES ('{id}', 'fx-eur', '{day}', 'MANUAL', '{close}', 'USD', datetime('now'), '{timestamp}')"
+            ),
+        );
+    }
+
+    #[tokio::test]
+    async fn unreadable_or_non_positive_quotes_are_not_exchange_rates() {
+        let (repo, _dir) = setup();
+        insert_eur_usd_pair(&repo);
+        insert_quote(&repo, "good", "2025-01-02", "1.1", "2025-01-02T00:00:00Z");
+        insert_quote(&repo, "zero", "2025-01-03", "0", "2025-01-03T00:00:00Z");
+        insert_quote(
+            &repo,
+            "negative",
+            "2025-01-04",
+            "-1.1",
+            "2025-01-04T00:00:00Z",
+        );
+        insert_quote(
+            &repo,
+            "garbage",
+            "2025-01-05",
+            "abc",
+            "2025-01-05T00:00:00Z",
+        );
+        insert_quote(&repo, "no-time", "2025-01-06", "1.2", "not a timestamp");
+
+        let historical = repo.get_all_historical_exchange_rates().unwrap();
+
+        assert_eq!(historical.len(), 1, "only the readable quote is a rate");
+        assert_eq!(historical[0].rate, Decimal::new(11, 1));
+        assert_eq!(
+            historical[0].timestamp,
+            Utc.with_ymd_and_hms(2025, 1, 2, 0, 0, 0).unwrap()
+        );
+    }
+
+    /// A zero inverse rate used to reach `Decimal::ONE / 0` in the FX service.
+    #[tokio::test]
+    async fn latest_rate_lookups_skip_a_zero_quote() {
+        let (repo, _dir) = setup();
+        insert_eur_usd_pair(&repo);
+        insert_quote(&repo, "zero", "2025-01-03", "0", "2025-01-03T00:00:00Z");
+
+        assert!(repo.get_exchange_rate("EUR", "USD").unwrap().is_none());
+        assert!(repo
+            .get_exchange_rate_by_id("FX:EUR/USD")
+            .unwrap()
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn latest_rate_lookups_return_a_readable_quote() {
+        let (repo, _dir) = setup();
+        insert_eur_usd_pair(&repo);
+        insert_quote(&repo, "good", "2025-01-02", "1.1", "2025-01-02T00:00:00Z");
+
+        let by_pair = repo.get_exchange_rate("EUR", "USD").unwrap().unwrap();
+        let by_key = repo.get_exchange_rate_by_id("FX:EUR/USD").unwrap().unwrap();
+
+        assert_eq!(by_pair.rate, Decimal::new(11, 1));
+        assert_eq!(by_key.rate, Decimal::new(11, 1));
     }
 }
