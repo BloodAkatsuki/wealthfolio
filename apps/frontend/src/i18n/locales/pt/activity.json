@@ -470,6 +470,7 @@
   },
   "form": {
     "section_asset_account": "Ativo e conta",
+    "section_crypto_account": "Cripto e conta",
     "section_account": "Conta",
     "section_amount": "Valor",
     "section_trade": "Operação",
@@ -563,6 +564,7 @@
     "transfer_direction_out": "Saída",
     "transfer_mode_cash": "Dinheiro",
     "transfer_mode_securities": "Valores mobiliários",
+    "transfer_mode_crypto": "Cripto",
     "sent_amount": "Valor enviado",
     "received_amount": "Valor recebido",
     "contract_multiplier": "Multiplicador do contrato",

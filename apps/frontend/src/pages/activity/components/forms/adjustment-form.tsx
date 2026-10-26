@@ -1,5 +1,11 @@
 import { useSettings } from "@/hooks/use-settings";
-import { ACTIVITY_SUBTYPES, ActivityType, InstrumentType, QuoteMode } from "@/lib/constants";
+import {
+  ACTIVITY_SUBTYPES,
+  ActivityType,
+  InstrumentType,
+  isCryptoAccountType,
+  QuoteMode,
+} from "@/lib/constants";
 import { invalidTypeError, requiredError } from "@/lib/zod-errors";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatedToggleGroup } from "@wealthfolio/ui/components/ui/animated-toggle-group";
@@ -279,7 +285,12 @@ export function AdjustmentForm({
 
   const modeItems = [
     { value: "cash" as const, label: t("activity:form.transfer_mode_cash") },
-    { value: "securities" as const, label: t("activity:form.transfer_mode_securities") },
+    {
+      value: "securities" as const,
+      label: isCryptoAccountType(selectedAccount?.accountType)
+        ? t("activity:form.transfer_mode_crypto")
+        : t("activity:form.transfer_mode_securities"),
+    },
   ];
 
   return (

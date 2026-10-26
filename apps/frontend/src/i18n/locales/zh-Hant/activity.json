@@ -465,6 +465,7 @@
   },
   "form": {
     "section_asset_account": "資產與帳戶",
+    "section_crypto_account": "加密資產與帳戶",
     "section_account": "帳戶",
     "section_amount": "金額",
     "section_trade": "交易",
@@ -558,6 +559,7 @@
     "transfer_direction_out": "轉出",
     "transfer_mode_cash": "現金",
     "transfer_mode_securities": "有價證券",
+    "transfer_mode_crypto": "加密資產",
     "sent_amount": "轉出金額",
     "received_amount": "收到金額",
     "contract_multiplier": "合約乘數",

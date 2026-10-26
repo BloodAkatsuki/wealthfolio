@@ -107,6 +107,11 @@ export function isLiabilityAccountType(accountType: string | undefined): boolean
   return accountType === AccountType.CREDIT_CARD;
 }
 
+/** Crypto accounts hold coins and tokens only: no options, bonds, short sales, dividends or splits. */
+export function isCryptoAccountType(accountType: string | undefined): boolean {
+  return accountType === AccountType.CRYPTOCURRENCY;
+}
+
 export function accountPurposeAccountTypes(purpose: AccountPurpose): readonly AccountType[] {
   return ACCOUNT_PURPOSE_TYPES[purpose];
 }

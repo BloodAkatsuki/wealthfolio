@@ -465,6 +465,7 @@
   },
   "form": {
     "section_asset_account": "Asset & Account",
+    "section_crypto_account": "Crypto & Account",
     "section_account": "Account",
     "section_amount": "Amount",
     "section_trade": "Trade",
@@ -558,6 +559,7 @@
     "transfer_direction_out": "Out",
     "transfer_mode_cash": "Cash",
     "transfer_mode_securities": "Securities",
+    "transfer_mode_crypto": "Crypto",
     "sent_amount": "Sent amount",
     "received_amount": "Received amount",
     "contract_multiplier": "Contract Multiplier",

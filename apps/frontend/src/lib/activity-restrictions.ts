@@ -1,5 +1,10 @@
 import type { Account } from "@/lib/types";
-import { ActivityType, ACTIVITY_TYPES, isLiabilityAccountType } from "@/lib/constants";
+import {
+  ActivityType,
+  ACTIVITY_TYPES,
+  isCryptoAccountType,
+  isLiabilityAccountType,
+} from "@/lib/constants";
 
 /**
  * Picker-friendly activity type that maps TRANSFER_IN/OUT to a single TRANSFER option.
@@ -29,6 +34,19 @@ const HOLDINGS_MODE_ALLOWED_TYPES: readonly string[] = [
   ActivityType.SPLIT,
 ];
 
+/** Activity types a crypto account has no use for: coins pay no dividends and do not split. */
+const CRYPTO_EXCLUDED_TYPES: readonly string[] = [ActivityType.DIVIDEND, ActivityType.SPLIT];
+
+/**
+ * Returns true if an account of the given type can hold the activity type.
+ */
+export function accountTypeAllowsActivityType(
+  accountType: string | undefined,
+  activityType: string,
+): boolean {
+  return !(isCryptoAccountType(accountType) && CRYPTO_EXCLUDED_TYPES.includes(activityType));
+}
+
 /**
  * Returns the list of activity types allowed for manual entry on the given account.
  * Returns picker-compatible types (includes "TRANSFER" alias).
@@ -54,11 +72,15 @@ export function getAllowedActivityTypes(account: Account | undefined): readonly 
     if (providerAccountId) {
       return [];
     }
-    return HOLDINGS_MODE_ALLOWED_TYPES;
+    return HOLDINGS_MODE_ALLOWED_TYPES.filter((type) =>
+      accountTypeAllowsActivityType(account.accountType, type),
+    );
   }
 
-  // TRANSACTIONS or NOT_SET - all types allowed
-  return ALL_PICKER_TYPES;
+  // TRANSACTIONS or NOT_SET - all types the account type can hold
+  return ALL_PICKER_TYPES.filter((type) =>
+    accountTypeAllowsActivityType(account.accountType, type),
+  );
 }
 
 /**

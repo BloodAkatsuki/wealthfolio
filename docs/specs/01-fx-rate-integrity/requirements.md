@@ -7,13 +7,13 @@
   API-/Tauri-/Addon-Aufrufe aber nicht.
 - `fx_service.rs:89` bildet `Decimal::ONE / rate` ohne Nullprüfung →
   `rust_decimal` panict.
-- Das Repository wandelt unparsebare `close`-Werte still in `0` und
-  unparsebare Zeitstempel still in `Utc::now()` um. Ein kaputter Kurs wird so zu
-  „0, aktuell“.
+- Das Repository wandelt unparsebare `close`-Werte still in `0` und unparsebare
+  Zeitstempel still in `Utc::now()` um. Ein kaputter Kurs wird so zu „0,
+  aktuell“.
 - Bewertungs- und Snapshot-Modelle wandeln unparsebare Decimals still in `0`.
 
-Folge: Absturz von Tauri-Command/Axum-Handler oder plausibel aussehende,
-falsche Werte.
+Folge: Absturz von Tauri-Command/Axum-Handler oder plausibel aussehende, falsche
+Werte.
 
 ## User Stories
 
@@ -31,7 +31,7 @@ falsche Werte.
   einem Validierungsfehler antworten und nichts persistieren.
 - **R1.2** WENN im Formular „Wechselkurs hinzufügen“ oder in der Tabellenzelle
   ein manueller Kurs `<= 0` eingegeben wird, DANN SOLL die Eingabe abgelehnt
-  werden. *Bereits erfüllt* (`add-exchange-rate-form.tsx` `refine`,
+  werden. _Bereits erfüllt_ (`add-exchange-rate-form.tsx` `refine`,
   `rate-cell.tsx`); keine Änderung nötig.
 - **R1.3** WENN ein inverser Kurs aus einem gespeicherten Kurs `0` gebildet
   werden müsste, DANN SOLL das System `FxError::RateNotFound` zurückgeben statt
@@ -41,17 +41,17 @@ falsche Werte.
   (`get_all_historical_exchange_rates`, `get_exchange_rate`,
   `get_exchange_rate_by_id`) diesen Quote überspringen und eine Warnung loggen
   (Quote- und Asset-ID, kein Wert), statt `0` zu liefern. Die Einstellungsliste
-  (`get_exchange_rates`) behält ihr Verhalten: dort bedeutet `0` bereits
-  „noch kein Kurs“ für Provider-Paare vor dem ersten Sync.
+  (`get_exchange_rates`) behält ihr Verhalten: dort bedeutet `0` bereits „noch
+  kein Kurs“ für Provider-Paare vor dem ersten Sync.
 - **R1.5** WENN ein gespeicherter FX-Quote einen unparsebaren Zeitstempel hat,
   DANN SOLL das Repository ihn überspringen und warnen, statt `Utc::now()` zu
   verwenden.
 - **R1.6** WENN `CurrencyConverter` mit einem Kurs `<= 0` initialisiert wird,
   DANN SOLL dieser weder vorwärts noch invers gespeichert werden.
 - **R1.7** WENN Bewertungs-/Snapshot-Zeilen unparsebare Decimal-Strings
-  enthalten, DANN SOLL das System eine Warnung loggen (Zeilen-ID, Feldname,
-  kein Wert). Das Rückgabeverhalten (0) bleibt in diesem Spec unverändert
-  (siehe „Außerhalb des Scopes“).
+  enthalten, DANN SOLL das System eine Warnung loggen (Zeilen-ID, Feldname, kein
+  Wert). Das Rückgabeverhalten (0) bleibt in diesem Spec unverändert (siehe
+  „Außerhalb des Scopes“).
 - **R1.8** Bestehende Datenbanken mit Kurs `0` SOLLEN weiter starten; betroffene
   Kurse werden durch R1.4/R1.6 ignoriert und über den Health-Check sichtbar.
 

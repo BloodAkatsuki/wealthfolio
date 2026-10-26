@@ -362,6 +362,7 @@
   },
   "form": {
     "section_asset_account": "Wertpapier & Konto",
+    "section_crypto_account": "Krypto & Konto",
     "section_account": "Konto",
     "section_amount": "Betrag",
     "section_trade": "Transaktion",
@@ -455,6 +456,7 @@
     "transfer_direction_out": "Aus",
     "transfer_mode_cash": "Bar",
     "transfer_mode_securities": "Wertpapiere",
+    "transfer_mode_crypto": "Krypto",
     "sent_amount": "Gesendeter Betrag",
     "received_amount": "Erhaltener Betrag",
     "contract_multiplier": "Kontraktmultiplikator",

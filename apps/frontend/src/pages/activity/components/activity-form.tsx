@@ -11,7 +11,11 @@ import {
   SheetTitle,
 } from "@wealthfolio/ui/components/ui/sheet";
 import type { ActivityDetails } from "@/lib/types";
-import { restrictionAllowsType } from "@/lib/activity-restrictions";
+import {
+  accountTypeAllowsActivityType,
+  getAllowedActivityTypes,
+  restrictionAllowsType,
+} from "@/lib/activity-restrictions";
 import { isLiabilityAccountType } from "@/lib/constants";
 import { useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -100,9 +104,22 @@ export function ActivityForm({
     return base.filter(
       (account) =>
         account.value === currentAccountId ||
-        restrictionAllowsType(account.restrictionLevel, effectiveSelectedType),
+        (restrictionAllowsType(account.restrictionLevel, effectiveSelectedType) &&
+          accountTypeAllowsActivityType(account.accountType, effectiveSelectedType)),
     );
   }, [accounts, transferAccounts, effectiveSelectedType, isEditing, activity?.accountId]);
+
+  // Offer only the types at least one of the accounts can hold, so a form
+  // opened for crypto accounts alone offers no dividends or splits.
+  const pickerTypes = useMemo(
+    () =>
+      accounts.length === 0
+        ? undefined
+        : getAllowedActivityTypes(undefined).filter((type) =>
+            accounts.some((account) => accountTypeAllowsActivityType(account.accountType, type)),
+          ),
+    [accounts],
+  );
 
   // Use the activity form hook with the effective type
   const { defaultValues, isLoading, isError, error, handleSubmit } = useActivityForm({
@@ -166,6 +183,7 @@ export function ActivityForm({
             <ActivityTypePicker
               value={pickedType}
               onSelect={handleSelectType}
+              allowedTypes={pickerTypes}
               includeReclassificationTypes={isEditing && !storedTypeIsEditable}
             />
           )}

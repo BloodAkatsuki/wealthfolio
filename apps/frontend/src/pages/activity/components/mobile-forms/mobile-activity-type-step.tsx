@@ -2,17 +2,22 @@ import { FormControl, FormField, FormItem } from "@wealthfolio/ui/components/ui/
 import { Icons } from "@wealthfolio/ui/components/ui/icons";
 import { RadioGroup, RadioGroupItem } from "@wealthfolio/ui/components/ui/radio-group";
 import { ScrollArea } from "@wealthfolio/ui/components/ui/scroll-area";
+import { accountTypeAllowsActivityType } from "@/lib/activity-restrictions";
 import { ActivityType } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useFormContext } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import type { AccountSelectOption } from "../forms/fields";
 
 interface MobileActivityTypeStepProps {
   includeReclassificationTypes?: boolean;
+  /** When given, types none of these accounts can hold are not offered. */
+  accounts?: AccountSelectOption[];
 }
 
 export function MobileActivityTypeStep({
   includeReclassificationTypes = false,
+  accounts,
 }: MobileActivityTypeStepProps) {
   const { control } = useFormContext();
   const { t } = useTranslation();
@@ -116,6 +121,21 @@ export function MobileActivityTypeStep({
     },
   ];
 
+  // A form opened for crypto accounts alone offers no dividends or splits.
+  const offeredCategories =
+    accounts && accounts.length > 0
+      ? activityTypes
+          .map((category) => ({
+            ...category,
+            types: category.types.filter((type) =>
+              accounts.some((account) =>
+                accountTypeAllowsActivityType(account.accountType, type.value),
+              ),
+            ),
+          }))
+          .filter((category) => category.types.length > 0)
+      : activityTypes;
+
   return (
     <div className="flex h-full flex-col">
       <div className="mb-4">
@@ -131,7 +151,7 @@ export function MobileActivityTypeStep({
               <FormControl>
                 <RadioGroup onValueChange={field.onChange} value={field.value as string}>
                   <div className="space-y-6 pb-4">
-                    {activityTypes.map((category) => (
+                    {offeredCategories.map((category) => (
                       <div key={category.category}>
                         <h4 className="text-muted-foreground mb-3 text-sm font-medium">
                           {category.category}

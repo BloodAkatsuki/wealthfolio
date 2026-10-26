@@ -576,9 +576,9 @@ a ROC reclassification or a reinvested distribution matching those effects.
 
 ### Swap Subtype
 
-A same-account exchange of one asset for another (for example SOL for
-JitoSOL) is saved through `save_swap` as two trades with subtype `SWAP` that
-share one `source_group_id`:
+A same-account exchange of one asset for another (for example SOL for JitoSOL)
+is saved through `save_swap` as two trades with subtype `SWAP` that share one
+`source_group_id`:
 
 | Leg  | Type | Quantity                     | Unit price                      | Fee                    | Final amount |
 | ---- | ---- | ---------------------------- | ------------------------------- | ---------------------- | ------------ |
@@ -586,10 +586,10 @@ share one `source_group_id`:
 | Get  | BUY  | units received               | `P` / units received            | 0                      | `P`          |
 
 `P` is the given units' value less the fee. Both legs move the same cash in
-opposite directions, so the swap leaves the cash balance unchanged. Gains on
-the given asset are realized like any sale, and the received asset is
-acquired at `P` on the swap date. Deleting either leg deletes both; saving
-with the swap's `source_group_id` replaces both legs in one transaction.
+opposite directions, so the swap leaves the cash balance unchanged. Gains on the
+given asset are realized like any sale, and the received asset is acquired at
+`P` on the swap date. Deleting either leg deletes both; saving with the swap's
+`source_group_id` replaces both legs in one transaction.
 
 ---
 

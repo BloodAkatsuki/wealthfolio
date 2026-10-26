@@ -462,6 +462,7 @@
   },
   "form": {
     "section_asset_account": "資産と口座",
+    "section_crypto_account": "暗号資産と口座",
     "section_account": "口座",
     "section_amount": "金額",
     "section_trade": "売買",
@@ -555,6 +556,7 @@
     "transfer_direction_out": "出庫",
     "transfer_mode_cash": "現金",
     "transfer_mode_securities": "証券",
+    "transfer_mode_crypto": "暗号資産",
     "sent_amount": "送金額",
     "received_amount": "受取額",
     "contract_multiplier": "契約乗数",

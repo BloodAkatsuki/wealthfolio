@@ -1,6 +1,11 @@
 import { useSettings } from "@/hooks/use-settings";
 import { isSecuritiesTransfer } from "@/lib/activity-utils";
-import { ActivityType, isLiabilityAccountType, QuoteMode } from "@/lib/constants";
+import {
+  ActivityType,
+  isCryptoAccountType,
+  isLiabilityAccountType,
+  QuoteMode,
+} from "@/lib/constants";
 import { normalizeCurrency } from "@/lib/utils";
 import { invalidTypeError, requiredError } from "@/lib/zod-errors";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -606,9 +611,18 @@ export function TransferForm({
   }, [isCrossCurrencyInternalCash, isInternalCashTransfer, setValue, sourceAmount]);
 
   // Toggle items for transfer mode
+  // A transfer touching a crypto account moves coins and tokens, not securities.
+  const involvesCryptoAccount =
+    isCryptoAccountType(selectedAccount?.accountType) ||
+    (!isExternal && isCryptoAccountType(destinationAccount?.accountType));
   const transferModeItems = [
     { value: "cash" as const, label: t("activity:form.transfer_mode_cash") },
-    { value: "securities" as const, label: t("activity:form.transfer_mode_securities") },
+    {
+      value: "securities" as const,
+      label: involvesCryptoAccount
+        ? t("activity:form.transfer_mode_crypto")
+        : t("activity:form.transfer_mode_securities"),
+    },
   ];
 
   // Handle transfer mode change

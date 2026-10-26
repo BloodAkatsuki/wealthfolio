@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Account } from "@/lib/types";
 import {
+  accountTypeAllowsActivityType,
   canAddHoldings,
   getAllowedActivityTypes,
   restrictionAllowsType,
@@ -47,5 +48,33 @@ describe("manual holdings activity types", () => {
 
   it("keeps connected holdings sync-only", () => {
     expect(getAllowedActivityTypes(holdingsAccount("provider-account"))).toEqual([]);
+  });
+});
+
+describe("crypto account activity types", () => {
+  const cryptoAccount = (trackingMode: Account["trackingMode"]): Account => ({
+    ...holdingsAccount(),
+    accountType: "CRYPTOCURRENCY",
+    trackingMode,
+  });
+
+  it("offers no dividends or splits, since coins neither pay nor split", () => {
+    for (const mode of ["TRANSACTIONS", "HOLDINGS"] as const) {
+      const allowed = getAllowedActivityTypes(cryptoAccount(mode));
+      expect(allowed).not.toContain("DIVIDEND");
+      expect(allowed).not.toContain("SPLIT");
+      expect(allowed).toContain("INTEREST");
+    }
+    expect(getAllowedActivityTypes(cryptoAccount("TRANSACTIONS"))).toEqual(
+      expect.arrayContaining(["BUY", "SELL", "TRANSFER", "DEPOSIT", "WITHDRAWAL", "FEE"]),
+    );
+  });
+
+  it("keeps dividends and splits for other account types", () => {
+    for (const type of ["DIVIDEND", "SPLIT"]) {
+      expect(accountTypeAllowsActivityType("CRYPTOCURRENCY", type)).toBe(false);
+      expect(accountTypeAllowsActivityType("SECURITIES", type)).toBe(true);
+      expect(accountTypeAllowsActivityType(undefined, type)).toBe(true);
+    }
   });
 });

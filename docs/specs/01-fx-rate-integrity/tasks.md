@@ -13,8 +13,8 @@ Jede Task: zuerst Test schreiben, der heute fehlschlägt, dann Fix.
     → `get_latest_exchange_rate(from, to)` gibt `Err`, kein Panic.
   - Fix: `checked_div` + Positivitätsprüfung.
 - [x] **T3 – Converter** (R1.6)
-  - Test: `CurrencyConverter::new` mit Vorwärtsrate 0 → `convert` liefert
-    Fehler „kein Kurs“ statt Ergebnis 0.
+  - Test: `CurrencyConverter::new` mit Vorwärtsrate 0 → `convert` liefert Fehler
+    „kein Kurs“ statt Ergebnis 0.
 - [x] **T4 – Repository-Parsing** (R1.4, R1.5, R1.8)
   - Test (`storage-sqlite`, mit `CONNECT_API_URL=http://test.local`): Quote mit
     `close = "abc"`, `close = "0"`, `timestamp = "kaputt"` einfügen →
@@ -22,8 +22,8 @@ Jede Task: zuerst Test schreiben, der heute fehlschlägt, dann Fix.
     `get_exchange_rate_by_id()` liefern sie nicht; App-Start (Migrationen)
     läuft.
   - Fix: `parse_fx_quote`, die drei Lookups darauf umstellen.
-- [ ] **T5 – Warn-Logs Modelle** (R1.7) – *zurückgestellt*: reines Logging
-  über ~20 Felder, nicht nötig für den Bugfix; separat mit Maintainer abstimmen.
+- [ ] **T5 – Warn-Logs Modelle** (R1.7) – _zurückgestellt_: reines Logging über
+      ~20 Felder, nicht nötig für den Bugfix; separat mit Maintainer abstimmen.
   - Test: `parse_decimal_or_zero("cost_basis", "id1", "x")` → `0`; Log-Ausgabe
     enthält `id1` und `cost_basis`, nicht `x`.
 - [x] **T6 – Frontend** (R1.2) – entfällt, bereits erfüllt.

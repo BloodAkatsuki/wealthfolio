@@ -14,16 +14,17 @@ Lots ist nirgends sichtbar.
 
 - **US-1** Als Anleger möchte ich alle Veräußerungen eines Kalenderjahres mit
   Kaufdatum, Verkaufsdatum, Haltedauer, Erlös, Kostenbasis und Gewinn sehen.
-- **US-2** Als Anleger möchte ich für offene Lots sehen, wie lange ich sie
-  halte und ab wann eine von mir gewählte Haltedauer erreicht ist.
+- **US-2** Als Anleger möchte ich für offene Lots sehen, wie lange ich sie halte
+  und ab wann eine von mir gewählte Haltedauer erreicht ist.
 - **US-3** Als Anleger möchte ich den Report als CSV exportieren, um ihn
   weiterzuverarbeiten.
 
 ## Akzeptanzkriterien
 
 ### Report realisierter Gewinne
-- **R2.1** WENN der Nutzer einen Zeitraum (Standard: aktuelles Kalenderjahr)
-  und optional Konten wählt, DANN SOLL das System alle Disposal-Slices mit
+
+- **R2.1** WENN der Nutzer einen Zeitraum (Standard: aktuelles Kalenderjahr) und
+  optional Konten wählt, DANN SOLL das System alle Disposal-Slices mit
   `disposal_date` im Zeitraum liefern.
 - **R2.2** Jede Zeile SOLL enthalten: Asset, Konto, Kaufdatum des Lots,
   Veräußerungsdatum, Haltedauer in Tagen, Menge, Erlös, Kostenbasis,
@@ -38,6 +39,7 @@ Lots ist nirgends sichtbar.
   Summen werden im Backend mit `Decimal` gebildet, nicht im Frontend.
 
 ### Haltedauer
+
 - **R2.6** Der Nutzer SOLL einen Haltedauer-Schwellwert in Tagen einstellen
   können (Standard: 365, deaktivierbar). Das System macht keine Aussage über
   steuerliche Folgen; der Wert ist rein informativ.
@@ -47,10 +49,12 @@ Lots ist nirgends sichtbar.
   ursprüngliche Kaufdatum gelten (die Engine erhält es bereits).
 
 ### Export
+
 - **R2.9** Der Nutzer SOLL den Report als CSV exportieren können (UTF-8,
   Decimal-Werte ungerundet als String, ISO-Datumsformat).
 
 ### Plattformen
+
 - **R2.10** Die Funktion SOLL in Desktop (Tauri) und Web (Axum) identisch
   verfügbar sein und RTL-tauglich sein.
 
@@ -62,8 +66,8 @@ Lots ist nirgends sichtbar.
 
 ## Offene Fragen
 
-- **Q1** Welche Engine-Ereignisse erzeugen heute Disposals? Laut
-  `state.rs:279` „sold/transferred/expired“. Zu klären, ob gepaarte interne
-  Transfers Disposals schreiben (dann Filter nötig, R2.3) oder nicht.
+- **Q1** Welche Engine-Ereignisse erzeugen heute Disposals? Laut `state.rs:279`
+  „sold/transferred/expired“. Zu klären, ob gepaarte interne Transfers Disposals
+  schreiben (dann Filter nötig, R2.3) oder nicht.
 - **Q2** Option-Expiry und Short-Cover: im Report als realisierend anzeigen?
   Vorschlag: ja, mit Ereignistyp-Spalte.

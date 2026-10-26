@@ -1,6 +1,6 @@
 import { useHoldings } from "@/hooks/use-holdings";
 import { useSettings } from "@/hooks/use-settings";
-import { ACTIVITY_SUBTYPES, ActivityType, QuoteMode } from "@/lib/constants";
+import { ACTIVITY_SUBTYPES, ActivityType, QuoteMode, isCryptoAccountType } from "@/lib/constants";
 import { buildOccSymbol, isValidOptionExpiration } from "@/lib/occ-symbol";
 import { normalizeCurrency } from "@/lib/utils";
 import { invalidTypeError, requiredError } from "@/lib/zod-errors";
@@ -327,7 +327,28 @@ export function BuyForm({
       if (acct?.currency) setValue("currency", acct.currency);
     }
   }, [accountId, currency, accounts, setValue]);
-  const assetType = watch("assetType") ?? "stock";
+  // A crypto account holds coins and tokens only, so it trades no options or bonds.
+  const isCryptoAccount = isCryptoAccountType(
+    accounts.find((a) => a.value === accountId)?.accountType,
+  );
+  const pickedAssetType = watch("assetType") ?? "stock";
+  // An existing row keeps the type it was saved with.
+  const restrictToCrypto = isCryptoAccount && !isEditing;
+  const assetType = restrictToCrypto ? "stock" : pickedAssetType;
+
+  // Moving a new trade to a crypto account drops an option or bond picked
+  // before, so validation no longer asks for fields the form does not show.
+  useEffect(() => {
+    if (restrictToCrypto && pickedAssetType !== "stock") {
+      setValue("assetType", "stock");
+      setValue("assetKind", undefined);
+      setValue("subtype", null);
+      setValue("assetId", "");
+      setValue("existingAssetId", undefined);
+      setValue("symbolInstrumentType", undefined);
+      setValue("assetMetadata", undefined);
+    }
+  }, [restrictToCrypto, pickedAssetType, setValue]);
   const isManualAsset = quoteMode === QuoteMode.MANUAL;
   const isOption = assetType === "option";
   const isStock = assetType === "stock";
@@ -427,10 +448,17 @@ export function BuyForm({
     (defaultValues?.assetType ?? "stock") === "stock" &&
     defaultValues?.subtype === ACTIVITY_SUBTYPES.POSITION_CLOSE;
   const showBuyToCover =
-    isStock && (currentShortQuantity > 0 || isStockCover || isEditingCoverActivity);
+    isStock &&
+    !restrictToCrypto &&
+    (currentShortQuantity > 0 || isStockCover || isEditingCoverActivity);
   const isCoverWithoutShort = !isEditing && isStockCover && !!assetId && currentShortQuantity === 0;
   const isBuyWhileShortWithoutCover =
-    !isEditing && isStock && !!assetId && currentShortQuantity > 0 && !isStockCover;
+    !restrictToCrypto &&
+    !isEditing &&
+    isStock &&
+    !!assetId &&
+    currentShortQuantity > 0 &&
+    !isStockCover;
   const isCoverQuantityExcess =
     !isEditing &&
     isStockCover &&
@@ -447,6 +475,10 @@ export function BuyForm({
     // Ensure symbolQuoteCcy is set — manual/custom symbols leave it undefined
     if (!data.symbolQuoteCcy && data.currency) {
       data.symbolQuoteCcy = data.currency;
+    }
+    // Crypto accounts do not sell short, so there is nothing to cover.
+    if (restrictToCrypto) {
+      data.subtype = null;
     }
     // Stocks only use subtype for explicit Buy to Cover.
     if (data.assetType === "stock" && data.subtype !== ACTIVITY_SUBTYPES.POSITION_CLOSE) {
@@ -487,9 +519,14 @@ export function BuyForm({
     <FormProvider {...form}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <FormSection
-          title={t("activity:form.section_asset_account")}
+          title={
+            restrictToCrypto
+              ? t("activity:form.section_crypto_account")
+              : t("activity:form.section_asset_account")
+          }
           action={
-            !isEditing && (
+            !isEditing &&
+            !restrictToCrypto && (
               <AssetTypeSelector
                 control={form.control}
                 name="assetType"

@@ -470,6 +470,7 @@
   },
   "form": {
     "section_asset_account": "Asset e conto",
+    "section_crypto_account": "Cripto e conto",
     "section_account": "Conto",
     "section_amount": "Importo",
     "section_trade": "Operazione",
@@ -563,6 +564,7 @@
     "transfer_direction_out": "Uscita",
     "transfer_mode_cash": "Contanti",
     "transfer_mode_securities": "Titoli",
+    "transfer_mode_crypto": "Cripto",
     "sent_amount": "Importo inviato",
     "received_amount": "Importo ricevuto",
     "contract_multiplier": "Moltiplicatore del contratto",

@@ -462,6 +462,7 @@
   },
   "form": {
     "section_asset_account": "자산 및 계좌",
+    "section_crypto_account": "암호화폐 및 계좌",
     "section_account": "계좌",
     "section_amount": "금액",
     "section_trade": "거래",
@@ -555,6 +556,7 @@
     "transfer_direction_out": "출금",
     "transfer_mode_cash": "현금",
     "transfer_mode_securities": "증권",
+    "transfer_mode_crypto": "암호화폐",
     "sent_amount": "보낸 금액",
     "received_amount": "받은 금액",
     "contract_multiplier": "계약 승수",

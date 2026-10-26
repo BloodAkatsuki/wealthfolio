@@ -1,6 +1,6 @@
 import { useHoldings } from "@/hooks/use-holdings";
 import { useSettings } from "@/hooks/use-settings";
-import { ACTIVITY_SUBTYPES, ActivityType, QuoteMode } from "@/lib/constants";
+import { ACTIVITY_SUBTYPES, ActivityType, QuoteMode, isCryptoAccountType } from "@/lib/constants";
 import { buildOccSymbol, isValidOptionExpiration } from "@/lib/occ-symbol";
 import { normalizeCurrency } from "@/lib/utils";
 import { invalidTypeError, requiredError } from "@/lib/zod-errors";
@@ -327,7 +327,28 @@ export function SellForm({
     }
   }, [accountId, currency, accounts, setValue]);
 
-  const assetType = watch("assetType") ?? "stock";
+  // A crypto account holds coins and tokens only, so it trades no options or bonds.
+  const isCryptoAccount = isCryptoAccountType(
+    accounts.find((a) => a.value === accountId)?.accountType,
+  );
+  const pickedAssetType = watch("assetType") ?? "stock";
+  // An existing row keeps the type it was saved with.
+  const restrictToCrypto = isCryptoAccount && !isEditing;
+  const assetType = restrictToCrypto ? "stock" : pickedAssetType;
+
+  // Moving a new trade to a crypto account drops an option or bond picked
+  // before, so validation no longer asks for fields the form does not show.
+  useEffect(() => {
+    if (restrictToCrypto && pickedAssetType !== "stock") {
+      setValue("assetType", "stock");
+      setValue("assetKind", undefined);
+      setValue("subtype", null);
+      setValue("assetId", "");
+      setValue("existingAssetId", undefined);
+      setValue("symbolInstrumentType", undefined);
+      setValue("assetMetadata", undefined);
+    }
+  }, [restrictToCrypto, pickedAssetType, setValue]);
   const isManualAsset = quoteMode === QuoteMode.MANUAL;
   const isOption = assetType === "option";
   const isStock = assetType === "stock";
@@ -516,6 +537,10 @@ export function SellForm({
       data.symbolQuoteCcy = data.currency;
     }
     // Stocks only use subtype for explicit Sell Short.
+    // Crypto accounts do not sell short.
+    if (restrictToCrypto) {
+      data.subtype = null;
+    }
     if (data.assetType === "stock" && data.subtype !== ACTIVITY_SUBTYPES.POSITION_OPEN) {
       data.subtype = null;
     }
@@ -555,9 +580,14 @@ export function SellForm({
     <FormProvider {...form}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <FormSection
-          title={t("activity:form.section_asset_account")}
+          title={
+            restrictToCrypto
+              ? t("activity:form.section_crypto_account")
+              : t("activity:form.section_asset_account")
+          }
           action={
-            !isEditing && (
+            !isEditing &&
+            !restrictToCrypto && (
               <AssetTypeSelector
                 control={form.control}
                 name="assetType"
@@ -609,7 +639,7 @@ export function SellForm({
           action={
             isOption ? (
               <PositionIntentSelector control={form.control} name="subtype" hideLabel />
-            ) : isStock ? (
+            ) : isStock && !restrictToCrypto ? (
               <StockTradeIntentSelector
                 control={form.control}
                 name="subtype"

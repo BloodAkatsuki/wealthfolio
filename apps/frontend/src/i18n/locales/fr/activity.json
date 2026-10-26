@@ -470,6 +470,7 @@
   },
   "form": {
     "section_asset_account": "Actif et compte",
+    "section_crypto_account": "Crypto et compte",
     "section_account": "Compte",
     "section_amount": "Montant",
     "section_trade": "Transaction",
@@ -563,6 +564,7 @@
     "transfer_direction_out": "Sortant",
     "transfer_mode_cash": "Espèces",
     "transfer_mode_securities": "Titres",
+    "transfer_mode_crypto": "Crypto",
     "sent_amount": "Montant envoyé",
     "received_amount": "Montant reçu",
     "contract_multiplier": "Multiplicateur de contrat",

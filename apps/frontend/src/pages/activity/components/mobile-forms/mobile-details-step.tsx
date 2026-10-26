@@ -1,5 +1,5 @@
-import { restrictionAllowsType } from "@/lib/activity-restrictions";
-import { ACTIVITY_SUBTYPES, ActivityType, QuoteMode } from "@/lib/constants";
+import { accountTypeAllowsActivityType, restrictionAllowsType } from "@/lib/activity-restrictions";
+import { ACTIVITY_SUBTYPES, ActivityType, QuoteMode, isCryptoAccountType } from "@/lib/constants";
 import { useSettingsContext } from "@/lib/settings-provider";
 import {
   Button,
@@ -141,17 +141,34 @@ export function MobileDetailsStep({
   const sourceCurrency = watch("sourceCurrency" as any) as string | undefined;
   const destinationCurrency = watch("destinationCurrency" as any) as string | undefined;
 
-  // Filter accounts by activity type (exclude HOLDINGS accounts for unsupported types)
+  // Filter accounts by activity type (exclude HOLDINGS accounts for unsupported types
+  // and account types that cannot hold the activity, such as dividends on a
+  // crypto account). An edited row keeps the account it was saved in.
   const filteredAccounts = useMemo(
-    () => accounts.filter((acc) => restrictionAllowsType(acc.restrictionLevel, activityType)),
-    [accounts, activityType],
+    () =>
+      accounts.filter(
+        (acc) =>
+          restrictionAllowsType(acc.restrictionLevel, activityType) &&
+          (accountTypeAllowsActivityType(acc.accountType, activityType) ||
+            (isEditing && acc.value === accountId)),
+      ),
+    [accounts, activityType, isEditing, accountId],
   );
   const assetCurrency = watch("currency");
   const [accountSheetOpen, setAccountSheetOpen] = useState(false);
 
   // BUY/SELL asset type (stock/option/bond)
   const isBuyOrSell = TRADE_ACTIVITY_TYPES.includes(activityType);
-  const assetType = isBuyOrSell ? ((watch("assetType" as any) as string) ?? "stock") : "stock";
+  // A crypto account holds coins and tokens only: no options, bonds or short
+  // sales. An existing row keeps the type it was saved with.
+  const restrictToCrypto =
+    isBuyOrSell &&
+    !isEditing &&
+    isCryptoAccountType(accounts.find((acc) => acc.value === accountId)?.accountType);
+  const pickedAssetType = isBuyOrSell
+    ? ((watch("assetType" as any) as string) ?? "stock")
+    : "stock";
+  const assetType = restrictToCrypto ? "stock" : pickedAssetType;
   const symbolInstrumentType = watch("symbolInstrumentType" as any) as string | undefined;
   const isOption = assetType === "option";
   const isBond = assetType === "bond";
@@ -258,9 +275,20 @@ export function MobileDetailsStep({
 
   const needsSplitRatio = activityType === ActivityType.SPLIT;
 
+  // A transfer touching a crypto account moves coins and tokens, not securities.
+  const transferInvolvesCrypto =
+    isTransfer &&
+    [accountId, isExternal ? undefined : toAccountId].some((id) =>
+      isCryptoAccountType(accounts.find((acc) => acc.value === id)?.accountType),
+    );
   const transferModeItems = [
     { value: "cash" as const, label: t("activity:form.transfer_mode_cash") },
-    { value: "securities" as const, label: t("activity:form.transfer_mode_securities") },
+    {
+      value: "securities" as const,
+      label: transferInvolvesCrypto
+        ? t("activity:form.transfer_mode_crypto")
+        : t("activity:form.transfer_mode_securities"),
+    },
   ];
 
   const dividendModeItems = [
@@ -331,6 +359,24 @@ export function MobileDetailsStep({
       { shouldValidate: false },
     );
   };
+
+  // Moving a new trade to a crypto account drops an option, bond or short-sale
+  // intent picked before, so validation no longer asks for hidden fields.
+  useEffect(() => {
+    if (!restrictToCrypto) return;
+    if (pickedAssetType !== "stock") {
+      setValue("assetType" as any, "stock");
+      setValue("assetKind" as any, undefined);
+      setValue("quoteMode" as any, QuoteMode.MARKET);
+      setValue("assetId" as any, "");
+      setValue("existingAssetId" as any, undefined);
+      setValue("symbolInstrumentType" as any, undefined);
+      setValue("assetMetadata" as any, undefined);
+    }
+    if (subtype) {
+      setValue("subtype" as any, null);
+    }
+  }, [restrictToCrypto, pickedAssetType, subtype, setValue]);
 
   const handleAssetTypeChange = (value: AssetType) => {
     if (value === "option") {
@@ -521,7 +567,7 @@ export function MobileDetailsStep({
 
   // Stock/Option/Bond selector — full-width segmented control on mobile.
   const assetTypeSelector =
-    isBuyOrSell && !isEditing ? (
+    isBuyOrSell && !isEditing && !restrictToCrypto ? (
       <AssetTypeSelector
         control={control as any}
         name={"assetType" as any}
@@ -592,7 +638,14 @@ export function MobileDetailsStep({
     <div className="flex h-full flex-col">
       <ScrollArea>
         <div className="form-mobile-spacing pb-4">
-          <FormSection title={t("activity:form.section_asset_account")} action={headerAction}>
+          <FormSection
+            title={
+              restrictToCrypto
+                ? t("activity:form.section_crypto_account")
+                : t("activity:form.section_asset_account")
+            }
+            action={headerAction}
+          >
             {assetTypeSelector}
             {/* External checkbox + direction (transfers) */}
             {isTransfer && (
@@ -821,7 +874,7 @@ export function MobileDetailsStep({
           {hasValueFields && (
             <FormSection title={detailsTitle}>
               {/* Trade intent — Sell/Sell Short (stock), Open/Close (option). Bonds have none. */}
-              {isBuyOrSell && !isBond && (
+              {isBuyOrSell && !isBond && !restrictToCrypto && (
                 <div className="-mt-1">
                   {isOption ? (
                     <PositionIntentSelector control={control as any} name={"subtype" as any} />

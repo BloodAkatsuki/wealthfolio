@@ -12,8 +12,8 @@
   - Impl `get_realized_disposal_rows`.
 - [ ] **T2 – Report-Service** (R2.3–R2.6, R2.8)
   - Tests: Summen exakt (`dec!`), Bucketing an der Grenze (Tag 365 vs. 366),
-    Transfer-Ausschluss, übertragenes Lot behält Kaufdatum, unparsebares Datum
-    → `holding_days: None` + Diagnose.
+    Transfer-Ausschluss, übertragenes Lot behält Kaufdatum, unparsebares Datum →
+    `holding_days: None` + Diagnose.
 - [ ] **T3 – Offene Lots** (R2.7)
   - Test Mapping: `acquisition_date` + Schwellwert → `threshold_reached_on`;
     Schwellwert 0 → `None`.
