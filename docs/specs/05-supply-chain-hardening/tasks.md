@@ -1,11 +1,12 @@
 # 05 – Supply-Chain-Härtung: Tasks
 
-- [ ] **T1 – Alpine-Upgrade + Digest** (R5.8)
+- [x] **T1 – Alpine-Upgrade + Digest** (R5.8) – `alpine:3.24.3@sha256:be26…`.
   - Verifikation: `docker build .` und Container-Start, `GET /api/v1/healthz`
-    → 200.
-- [ ] **T2 – SHA-Pinning aller Actions** (R5.1)
-  - Verifikation: `grep -rnE 'uses: [^.][^@]*@[^0-9a-f]' .github/workflows`
-    liefert nichts; Testlauf `pr-check` grün.
+    → 200. **Noch offen** (im Entwicklungscontainer nicht ausgeführt).
+- [x] **T2 – SHA-Pinning aller Actions** (R5.1) – 90 Referenzen, jeweils auf
+  den Commit, auf den der bisherige Tag zeigte (kein Versionssprung).
+  - Verifikation: Grep auf ungepinnte `uses:` liefert nichts ✓; Testlauf
+    `pr-check` grün – **noch offen** (läuft erst im PR).
 - [ ] **T3 – zizmor-Job** (R5.2, R5.3); Findings beheben oder begründet
   unterdrücken.
 - [ ] **T4 – Release-Cache-Härtung** (R5.3).
