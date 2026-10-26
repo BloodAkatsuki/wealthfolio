@@ -462,6 +462,9 @@ pub trait ActivityServiceTrait: Send + Sync {
         &self,
         request: InternalTransferPairRequest,
     ) -> Result<InternalTransferPairResponse>;
+    /// Saves a same-account swap as a SELL and a BUY sharing one group, in
+    /// one transaction. With `source_group_id`, replaces that swap's legs.
+    async fn save_swap(&self, request: SwapRequest) -> Result<SwapResponse>;
     async fn link_transfer_activities(
         &self,
         activity_a_id: String,

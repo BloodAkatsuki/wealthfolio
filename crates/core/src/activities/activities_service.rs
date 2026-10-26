@@ -45,10 +45,10 @@ use crate::activities::activities_constants::{
     classify_import_activity, is_cash_symbol, is_garbage_symbol, is_securities_transfer,
     requires_final_cash_amount, requires_symbol, ImportSymbolDisposition,
     ACTIVITY_SUBTYPE_NOTIONAL_DISTRIBUTION, ACTIVITY_SUBTYPE_OPTION_EXPIRY,
-    ACTIVITY_SUBTYPE_RETURN_OF_CAPITAL, ACTIVITY_TYPE_ADJUSTMENT, ACTIVITY_TYPE_BUY,
-    ACTIVITY_TYPE_CREDIT, ACTIVITY_TYPE_FEE, ACTIVITY_TYPE_INTEREST, ACTIVITY_TYPE_SELL,
-    ACTIVITY_TYPE_SPLIT, ACTIVITY_TYPE_TAX, ACTIVITY_TYPE_TRANSFER_IN, ACTIVITY_TYPE_TRANSFER_OUT,
-    ACTIVITY_TYPE_WITHDRAWAL, PRICE_BEARING_ACTIVITY_TYPES,
+    ACTIVITY_SUBTYPE_RETURN_OF_CAPITAL, ACTIVITY_SUBTYPE_SWAP, ACTIVITY_TYPE_ADJUSTMENT,
+    ACTIVITY_TYPE_BUY, ACTIVITY_TYPE_CREDIT, ACTIVITY_TYPE_FEE, ACTIVITY_TYPE_INTEREST,
+    ACTIVITY_TYPE_SELL, ACTIVITY_TYPE_SPLIT, ACTIVITY_TYPE_TAX, ACTIVITY_TYPE_TRANSFER_IN,
+    ACTIVITY_TYPE_TRANSFER_OUT, ACTIVITY_TYPE_WITHDRAWAL, PRICE_BEARING_ACTIVITY_TYPES,
 };
 use crate::activities::activities_errors::ActivityError;
 use crate::activities::activities_model::*;
@@ -57,7 +57,10 @@ use crate::activities::cash_balances::{
     CashLedgerActivity,
 };
 use crate::activities::csv_parser::{self, ParseConfig, ParsedCsvResult};
-use crate::activities::idempotency::{compute_activity_idempotency_key, compute_idempotency_key};
+use crate::activities::idempotency::{
+    compute_activity_idempotency_key, compute_idempotency_key, generate_manual_idempotency_key,
+};
+use crate::activities::swap::build_swap_legs;
 use crate::activities::{
     ActivityRepositoryTrait, ActivityServiceTrait, TransferLinkState, TransferPair,
     TransferPairResolution,
@@ -5590,6 +5593,87 @@ impl ActivityServiceTrait for ActivityService {
             transfer_out,
             transfer_in,
         })
+    }
+
+    async fn save_swap(&self, request: SwapRequest) -> Result<SwapResponse> {
+        let replaced_group = request
+            .source_group_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let old_activities = match replaced_group {
+            Some(group_id) => {
+                let legs = self
+                    .activity_repository
+                    .get_activities_by_source_group_id(group_id)?;
+                let is_swap = legs.len() == 2
+                    && legs
+                        .iter()
+                        .all(|leg| leg.subtype.as_deref() == Some(ACTIVITY_SUBTYPE_SWAP));
+                if !is_swap {
+                    return Err(Self::invalid_activity_data("Swap to replace was not found"));
+                }
+                legs
+            }
+            None => Vec::new(),
+        };
+
+        let (mut sell, mut buy) = build_swap_legs(&request)?;
+        if !old_activities.is_empty() {
+            // The replaced legs still exist while the new ones are prepared,
+            // and an unchanged leg has their content key: a fresh key keeps
+            // the duplicate check from matching the legs this save removes.
+            for leg in [&mut sell, &mut buy] {
+                leg.idempotency_key = Some(generate_manual_idempotency_key());
+            }
+        }
+        let creates = vec![
+            self.prepare_new_activity(sell).await?,
+            self.prepare_new_activity(buy).await?,
+        ];
+        let delete_ids = old_activities.iter().map(|leg| leg.id.clone()).collect();
+        // One transaction: the repository deletes before it creates, so the
+        // replacement may reuse the group id of the legs it removes.
+        let persisted = self
+            .activity_repository
+            .bulk_mutate_activities(creates, Vec::new(), delete_ids)
+            .await
+            .map_err(Self::map_duplicate_idempotency_violation)?;
+
+        let leg_of_type = |activity_type: &str| {
+            persisted
+                .created
+                .iter()
+                .find(|activity| activity.activity_type == activity_type)
+                .cloned()
+                .ok_or_else(|| {
+                    Self::invalid_activity_data(format!(
+                        "Swap {activity_type} leg was not returned"
+                    ))
+                })
+        };
+        let sell = leg_of_type(ACTIVITY_TYPE_SELL)?;
+        let buy = leg_of_type(ACTIVITY_TYPE_BUY)?;
+
+        let mut account_ids = HashSet::new();
+        let mut asset_ids = HashSet::new();
+        let mut currencies = HashSet::new();
+        for activity in old_activities.iter().chain([&sell, &buy]) {
+            Self::add_activity_to_event_sets(
+                activity,
+                &mut account_ids,
+                &mut asset_ids,
+                &mut currencies,
+            );
+        }
+        self.emit_activities_changed(
+            account_ids.into_iter().collect(),
+            asset_ids.into_iter().collect(),
+            currencies.into_iter().collect(),
+            Self::earliest_activity_at_utc(old_activities.iter().chain([&sell, &buy])),
+        );
+
+        Ok(SwapResponse { sell, buy })
     }
 
     async fn link_transfer_activities(

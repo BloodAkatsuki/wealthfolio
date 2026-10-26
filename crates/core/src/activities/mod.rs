@@ -11,6 +11,7 @@ mod compiler;
 mod csv_parser;
 mod idempotency;
 mod import_run_model;
+mod swap;
 mod transfer_pairs;
 
 #[cfg(test)]
@@ -37,8 +38,8 @@ pub use activities_model::{
     ImportTemplate, ImportTemplateData, ImportTemplateScope, IncomeData,
     InternalTransferPairRequest, InternalTransferPairResponse, LinkedTransfer, NewActivity,
     PrepareActivitiesResult, PreviewedActivityUpdate, SaveBrokerSyncProfileRulesRequest, Sort,
-    TemplateKind, TransferMatchCandidate, TransferMatchCandidateRequest, UnlinkedTransfer,
-    UnlinkedTransfers, UnlinkedTransfersRequest,
+    SwapRequest, SwapResponse, TemplateKind, TransferMatchCandidate, TransferMatchCandidateRequest,
+    UnlinkedTransfer, UnlinkedTransfers, UnlinkedTransfersRequest,
 };
 pub use activities_service::ActivityService;
 pub use activities_traits::{ActivityRepositoryTrait, ActivityServiceTrait};

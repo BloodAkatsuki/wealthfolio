@@ -6,8 +6,8 @@ use wealthfolio_core::activities::{
     Activity, ActivityBulkMutationRequest, ActivityBulkMutationResult, ActivityImport,
     ActivitySearchResponse, ActivityUpdate, ImportActivitiesResult, ImportAssetCandidate,
     ImportAssetPreviewItem, ImportMappingData, ImportTemplateData, InternalTransferPairRequest,
-    InternalTransferPairResponse, NewActivity, ParseConfig, ParsedCsvResult, Sort,
-    TransferMatchCandidate, TransferMatchCandidateRequest,
+    InternalTransferPairResponse, NewActivity, ParseConfig, ParsedCsvResult, Sort, SwapRequest,
+    SwapResponse, TransferMatchCandidate, TransferMatchCandidateRequest,
 };
 use wealthfolio_core::health::HealthServiceTrait;
 use wealthfolio_core::utils::time_utils::{
@@ -160,6 +160,19 @@ pub async fn save_internal_transfer_pair(
         .map_err(|e| e.to_string())?;
     context.health_service().clear_cache().await;
     Ok(pair)
+}
+
+#[tauri::command]
+pub async fn save_swap(request: SwapRequest, state: ProfileAccess) -> Result<SwapResponse, String> {
+    let context = state.context()?;
+    debug!("Saving swap...");
+    let swap = context
+        .activity_service()
+        .save_swap(request)
+        .await
+        .map_err(|e| e.to_string())?;
+    context.health_service().clear_cache().await;
+    Ok(swap)
 }
 
 #[tauri::command]

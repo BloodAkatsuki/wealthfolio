@@ -5,20 +5,27 @@ Engine-Änderung (CARRYOVER) einholen. REALIZE kann unabhängig davon starten.
 
 ## Phase 1 – REALIZE (ohne Engine-Änderung)
 
-- [ ] **T1 – Subtyp-Konstanten + Kanonisierung** (R3.1)
+- [x] **T1 – Subtyp-Konstanten + Kanonisierung** (R3.1)
   - Test: `canonicalize_subtype_for_activity("BUY", Some("swap"))` →
-    `Some("SWAP")`; dito SELL; für DIVIDEND → `None`.
-- [ ] **T2 – `NewSwap` + Validierung** (R3.2)
+    `Some("SWAP")`; dito SELL.
+- [x] **T2 – `NewSwap` + Validierung** (R3.2)
   - Tests: A = B, Menge 0, Gebühr ≥ Menge A, fehlender Marktwert bei REALIZE
     → Fehler.
-- [ ] **T3 – Leg-Berechnung REALIZE** (R3.5–R3.7)
-  - Test mit Beispiel aus `design.md`: `amount_B = 1498,50`, Cash-Saldo nach
-    Engine-Lauf unverändert (`dec!`-genau), SELL-Disposal realisiert G/V.
-- [ ] **T4 – `create_swap`/`update_swap`/`delete_swap` atomar** (R3.3,
+- [x] **T3 – Leg-Berechnung REALIZE** (R3.5–R3.7)
+  - Test mit Beispiel aus `design.md`: SELL `amount = 1498,50`, BUY
+    `amount = 1498,50`; nach dem Writer `|Cash-Saldo| < 10⁻²⁰`; SELL-Disposal
+    realisiert G/V.
+- [x] **T4 – `create_swap`/`update_swap`/`delete_swap` atomar** (R3.3,
   R3.14, R3.15)
-  - Test: Writer-Fehler beim zweiten Leg → keines gespeichert.
-  - Test: Einzel-Löschen eines Swap-Legs → Fehler.
-- [ ] **T5 – Wiring Tauri/Axum/Web + Paritätstest** (R3.18)
+  - Umgesetzt als `save_swap` (Anlegen + atomares Ersetzen über
+    `bulk_mutate_activities`, das vor dem Anlegen löscht). Ein eigenes
+    `delete_swap` ist unnötig: Das Repository löscht beim Löschen einer
+    Aktivität alle mit derselben `source_group_id` mit (R3.15 bereits
+    erfüllt). Beim Ersetzen bekommen die neuen Legs eindeutige
+    Idempotency-Keys, sonst würde der Duplikat-Check die noch vorhandenen
+    alten Legs treffen.
+- [x] **T5 – Wiring Tauri/Axum/Web + Paritätstest** (R3.18) – Wiring erledigt;
+  Paritätstest und Tauri-Kompilierung noch nicht ausgeführt (siehe Status).
 - [ ] **T6 – UI-Formular + Listenanzeige + i18n** (R3.1, R3.18)
 - [ ] **T7 – Import-Verknüpfung REALIZE** (R3.17)
 

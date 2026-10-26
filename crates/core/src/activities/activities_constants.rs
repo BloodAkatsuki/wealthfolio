@@ -269,6 +269,12 @@ pub const ACTIVITY_SUBTYPE_RETURN_OF_CAPITAL: &str = "RETURN_OF_CAPITAL";
 /// the asset's cost basis by its amount, with no unit or cash effect.
 pub const ACTIVITY_SUBTYPE_NOTIONAL_DISTRIBUTION: &str = "NOTIONAL_DISTRIBUTION";
 
+/// Swap leg: a same-account exchange of one asset for another, stored as a
+/// SELL of the given asset and a BUY of the received asset that share a
+/// `source_group_id` and the same final cash amount, so cash does not move.
+/// Gains on the given asset are realized like any sale.
+pub const ACTIVITY_SUBTYPE_SWAP: &str = "SWAP";
+
 /// Position-opening trade intent.
 /// Examples: buy-to-open for long options, sell-to-open for short options.
 pub const ACTIVITY_SUBTYPE_POSITION_OPEN: &str = "POSITION_OPEN";

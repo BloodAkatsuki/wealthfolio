@@ -413,6 +413,31 @@ export interface InternalTransferPairResponse {
   transferIn: Activity;
 }
 
+/** A same-account swap of one asset for another at market value. */
+export interface SwapRequest {
+  /** Group of an existing swap that this request replaces. */
+  sourceGroupId?: string;
+  accountId: string;
+  activityDate: string | Date;
+  /** Currency of `fromUnitPrice`; both legs are booked in it. */
+  currency: string;
+  fromAsset: AssetResolutionInput;
+  /** Units given up, including `feeQuantity`. */
+  fromQuantity: string | number;
+  /** Market price of one unit of the given asset at the swap. */
+  fromUnitPrice: string | number;
+  /** Units of the given asset paid as network fee. */
+  feeQuantity?: string | number | null;
+  toAsset: AssetResolutionInput;
+  toQuantity: string | number;
+  notes?: string | null;
+}
+
+export interface SwapResponse {
+  sell: Activity;
+  buy: Activity;
+}
+
 export interface TransferMatchCandidateRequest {
   activityId: string;
   windowDays?: number;

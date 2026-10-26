@@ -11,8 +11,8 @@ use wealthfolio_core::activities::{
     import_type, Activity, ActivityBulkMutationRequest, ActivityBulkMutationResult, ActivityImport,
     ActivitySearchResponse, ActivityUpdate, ImportActivitiesResult, ImportAssetCandidate,
     ImportAssetPreviewItem, ImportMappingData, ImportTemplateData, InternalTransferPairRequest,
-    InternalTransferPairResponse, NewActivity, ParseConfig, ParsedCsvResult,
-    TransferMatchCandidate, TransferMatchCandidateRequest,
+    InternalTransferPairResponse, NewActivity, ParseConfig, ParsedCsvResult, SwapRequest,
+    SwapResponse, TransferMatchCandidate, TransferMatchCandidateRequest,
 };
 use wealthfolio_core::utils::time_utils::{
     local_date_range_utc_bounds, parse_user_timezone_or_default,
@@ -198,6 +198,15 @@ async fn save_internal_transfer_pair(
         .await?;
     state.health_service.clear_cache().await;
     Ok(Json(pair))
+}
+
+async fn save_swap(
+    axum::Extension(state): axum::Extension<Arc<AppState>>,
+    Json(request): Json<SwapRequest>,
+) -> ApiResult<Json<SwapResponse>> {
+    let swap = state.activity_service.save_swap(request).await?;
+    state.health_service.clear_cache().await;
+    Ok(Json(swap))
 }
 
 #[derive(serde::Deserialize)]
@@ -469,6 +478,7 @@ pub fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
             "/activities/transfer-pair",
             post(save_internal_transfer_pair),
         )
+        .route("/activities/swap", post(save_swap))
         .route(
             "/activities/transfer-match-candidates",
             post(find_transfer_match_candidates),

@@ -17,19 +17,25 @@ gepaart werden (`normalize.rs::resolve_transfer_pairs`).
 
 Beispiel: 10 SOL (davon 0,01 Gas) → 9,2 JitoSOL, SOL-Kurs 150 USD.
 
-| Leg | Typ | Menge | unit_price | amount | fee |
-| --- | --- | --- | --- | --- | --- |
-| A | SELL | 10 | 150 | 1500,00 | 1,50 |
-| B | BUY | 9,2 | 162,8261 | 1498,50 | 0 |
+`amount` ist bei Trades der **finale Cash-Betrag** nach Gebühren (SELL:
+Menge × Preis − Gebühr, BUY: Menge × Preis + Gebühr; siehe
+`mark_trade_amount_confidence` in `activities_service.rs`).
 
-Cash: +1500,00 − 1,50 − 1498,50 = 0 (R3.6). SELL und BUY sind bestehende
+| Leg | Typ | Menge | unit_price | fee | amount (final) |
+| --- | --- | --- | --- | --- | --- |
+| A | SELL | 10 | 150 | 1,50 | 1498,50 |
+| B | BUY | 9,2 | 1498,50 / 9,2 = 162,8804… | 0 | 1498,50 |
+
+Cash: +1498,50 − 1498,50 = 0 (R3.6). SELL und BUY sind bestehende
 Engine-Pfade → R3.4, R3.5, R3.7 ohne Engine-Code. R3.8: Beide Legs sind
 interne Trades, keine externen Flows.
 
-Der Service berechnet `amount_B = amount_A − fee_A` exakt in `Decimal` und
-leitet `unit_price_B = amount_B / qty_B` ab (`arith::div`, gerundet nur für
-Anzeige). Damit ist Cash-Neutralität per Konstruktion garantiert, nicht per
-Toleranz.
+Der Service berechnet `amount_B = amount_A` in `Decimal` und leitet
+`unit_price_B = amount_B / qty_B` ab (`arith::div`). Weil der Writer einen
+Betrag innerhalb ½ Minor-Unit durch `Menge × Preis` ersetzt, bleibt ein
+Rundungsrest in der Größenordnung der Decimal-Präzision (≈ 10⁻²⁵). Er ist
+in keiner Anzeige sichtbar; der Test prüft `|Cash-Saldo| < 10⁻²⁰`, nicht
+exakt 0.
 
 ## Modus CARRYOVER – Engine-Erweiterung
 
@@ -77,19 +83,20 @@ den Pair-Kind.
 ## Konstanten / Modell (`crates/core/src/activities`)
 - `ACTIVITY_SUBTYPE_SWAP`, `ACTIVITY_SUBTYPE_ASSET_CONVERSION` in
   `activities_constants.rs`.
-- `canonicalize_subtype_for_activity` (`activities_model.rs:449`): SWAP für
-  BUY/SELL, ASSET_CONVERSION für TRANSFER_IN/OUT zulassen – sonst werden sie
-  heute verworfen.
+- `canonicalize_subtype` (`activities_model.rs`): SWAP und ASSET_CONVERSION
+  auf die kanonische Schreibweise abbilden. Unbekannte Subtypen werden heute
+  nicht verworfen, sondern unverändert durchgereicht – nur ohne
+  Normalisierung von Groß-/Kleinschreibung.
 - Gebührenmenge (CARRYOVER) in `metadata.swap.fee_quantity` des Out-Legs;
   Marktwert-Herkunft in `metadata.swap.valuation_source` (`MANUAL`|`QUOTE`).
 
 ## Service (`activities_service.rs`)
-- `create_swap(NewSwap) -> SwapPair`: validiert R3.2/R3.12, erzeugt beide
-  Legs mit gemeinsamer `source_group_id` in **einer** Schreib-Transaktion über
-  den bestehenden Writer (R3.3).
-- `update_swap(group_id, NewSwap)`, `delete_swap(group_id)` (R3.14, R3.15).
-- Einzelnes Löschen eines Legs mit Swap-Subtyp → Fehler mit Hinweis auf
-  `delete_swap` (UI fragt nach und ruft `delete_swap`).
+- `save_swap(SwapRequest) -> SwapResponse` (umgesetzt): validiert R3.2,
+  erzeugt beide Legs mit gemeinsamer `source_group_id` in **einer**
+  Transaktion über `bulk_mutate_activities` (R3.3). Mit `source_group_id`
+  ersetzt es einen bestehenden Swap; der Bulk-Pfad löscht vor dem Anlegen.
+- Löschen: kein eigener Pfad nötig – das Repository löscht beim Löschen einer
+  Aktivität alle Aktivitäten derselben Gruppe mit (R3.15 bereits erfüllt).
 - Bestehende `load_internal_transfer_pair_for_activity` (~1819) wird für
   ASSET_CONVERSION erweitert.
 

@@ -574,6 +574,23 @@ a ROC reclassification or a reinvested distribution matching those effects.
 | `RETURN_OF_CAPITAL`     | Dividends already recorded that were a return of capital    | Cost basis and income down by `amount`, no cash |
 | `NOTIONAL_DISTRIBUTION` | Taxable distribution reinvested without new units (phantom) | Cost basis and income up by `amount`, no cash   |
 
+### Swap Subtype
+
+A same-account exchange of one asset for another (for example SOL for
+JitoSOL) is saved through `save_swap` as two trades with subtype `SWAP` that
+share one `source_group_id`:
+
+| Leg  | Type | Quantity                     | Unit price                      | Fee                    | Final amount |
+| ---- | ---- | ---------------------------- | ------------------------------- | ---------------------- | ------------ |
+| Give | SELL | units given, incl. fee units | market price of the given asset | fee units × that price | `P`          |
+| Get  | BUY  | units received               | `P` / units received            | 0                      | `P`          |
+
+`P` is the given units' value less the fee. Both legs move the same cash in
+opposite directions, so the swap leaves the cash balance unchanged. Gains on
+the given asset are realized like any sale, and the received asset is
+acquired at `P` on the swap date. Deleting either leg deletes both; saving
+with the swap's `source_group_id` replaces both legs in one transaction.
+
 ---
 
 ## Metadata Structure

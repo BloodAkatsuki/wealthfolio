@@ -3,8 +3,9 @@ pub(crate) mod tests {
     use crate::accounts::{Account, AccountServiceTrait, AccountUpdate, NewAccount};
     use crate::activities::activities_model::*;
     use crate::activities::{
-        ActivityRepositoryTrait, ActivityService, ActivityServiceTrait, ImportRun,
-        ImportRunRepositoryTrait, ImportRunStatus, TransferLinkState, ACTIVITY_TYPE_ADJUSTMENT,
+        ActivityError, ActivityRepositoryTrait, ActivityService, ActivityServiceTrait, ImportRun,
+        ImportRunRepositoryTrait, ImportRunStatus, TransferLinkState, ACTIVITY_SUBTYPE_SWAP,
+        ACTIVITY_TYPE_ADJUSTMENT, ACTIVITY_TYPE_BUY, ACTIVITY_TYPE_SELL,
     };
     use crate::assets::{
         normalize_quote_ccy_code, parse_crypto_pair_symbol, parse_symbol_with_exchange_suffix,
@@ -17552,5 +17553,124 @@ pub(crate) mod tests {
         assert_eq!(json["cashBalance"], "70");
         assert_eq!(json["cashBalanceCurrency"], "USD");
         assert_eq!(json["cashBalanceScope"], "DAY");
+    }
+
+    fn swap_service() -> (ActivityService, Arc<MockActivityRepository>) {
+        let account_service = Arc::new(MockAccountService::new());
+        let asset_service = Arc::new(MockAssetService::new());
+        let activity_repository = Arc::new(MockActivityRepository::new());
+        account_service.add_account(create_test_account("wallet", "USD"));
+        for id in ["asset-sol", "asset-jitosol", "asset-msol"] {
+            asset_service.add_asset(create_test_asset(id, "USD"));
+        }
+        let service = ActivityService::new(
+            activity_repository.clone(),
+            account_service,
+            asset_service,
+            Arc::new(MockFxService::new()),
+            Arc::new(MockQuoteService),
+        );
+        (service, activity_repository)
+    }
+
+    fn swap_request(to_asset_id: &str) -> SwapRequest {
+        SwapRequest {
+            source_group_id: None,
+            account_id: "wallet".to_string(),
+            activity_date: "2026-10-01".to_string(),
+            currency: "USD".to_string(),
+            from_asset: AssetResolutionInput {
+                id: Some("asset-sol".to_string()),
+                ..Default::default()
+            },
+            from_quantity: Some(dec!(10)),
+            from_unit_price: Some(dec!(150)),
+            fee_quantity: Some(dec!(0.01)),
+            to_asset: AssetResolutionInput {
+                id: Some(to_asset_id.to_string()),
+                ..Default::default()
+            },
+            to_quantity: Some(dec!(9.2)),
+            notes: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn save_swap_books_a_cash_neutral_sell_and_buy() {
+        let (service, repository) = swap_service();
+
+        let swap = service
+            .save_swap(swap_request("asset-jitosol"))
+            .await
+            .expect("swap should be saved");
+
+        assert_eq!(swap.sell.activity_type, ACTIVITY_TYPE_SELL);
+        assert_eq!(swap.sell.asset_id.as_deref(), Some("asset-sol"));
+        assert_eq!(swap.buy.activity_type, ACTIVITY_TYPE_BUY);
+        assert_eq!(swap.buy.asset_id.as_deref(), Some("asset-jitosol"));
+        for leg in [&swap.sell, &swap.buy] {
+            assert_eq!(leg.subtype.as_deref(), Some(ACTIVITY_SUBTYPE_SWAP));
+            assert!(!leg.needs_review, "a computed swap leg needs no review");
+        }
+        assert_eq!(swap.sell.source_group_id, swap.buy.source_group_id);
+        let cash = swap.sell.amount.unwrap() - swap.buy.amount.unwrap();
+        assert!(
+            cash.abs() < dec!(0.00000000000000000001),
+            "swap moved cash: {cash}"
+        );
+        assert_eq!(repository.get_activities().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn save_swap_replaces_an_existing_swap_atomically() {
+        let (service, repository) = swap_service();
+        let first = service
+            .save_swap(swap_request("asset-jitosol"))
+            .await
+            .unwrap();
+        let group = first.sell.source_group_id.clone();
+
+        let mut replacement = swap_request("asset-msol");
+        replacement.source_group_id = group.clone();
+        let second = service.save_swap(replacement).await.unwrap();
+
+        let stored = repository.get_activities().unwrap();
+        assert_eq!(stored.len(), 2, "the old legs are replaced, not kept");
+        let mut stored_assets: Vec<_> = stored
+            .iter()
+            .filter_map(|leg| leg.asset_id.as_deref())
+            .collect();
+        stored_assets.sort();
+        assert_eq!(stored_assets, vec!["asset-msol", "asset-sol"]);
+        assert_eq!(second.buy.asset_id.as_deref(), Some("asset-msol"));
+        assert_eq!(second.sell.source_group_id, group);
+    }
+
+    #[tokio::test]
+    async fn save_swap_rejects_replacing_something_that_is_not_a_swap() {
+        let (service, repository) = swap_service();
+        let mut request = swap_request("asset-jitosol");
+        request.source_group_id = Some("wf-transfer-unknown".to_string());
+
+        let result = service.save_swap(request).await;
+
+        assert!(matches!(
+            result,
+            Err(Error::Activity(ActivityError::InvalidData(_)))
+        ));
+        assert!(repository.get_activities().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn save_swap_rejects_an_invalid_request_without_writing() {
+        let (service, repository) = swap_service();
+
+        let result = service.save_swap(swap_request("asset-sol")).await;
+
+        assert!(matches!(
+            result,
+            Err(Error::Activity(ActivityError::InvalidData(_)))
+        ));
+        assert!(repository.get_activities().unwrap().is_empty());
     }
 }

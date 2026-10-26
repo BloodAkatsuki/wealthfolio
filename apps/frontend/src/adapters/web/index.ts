@@ -116,6 +116,7 @@ export {
   saveBrokerSyncProfileRules,
   saveImportTemplate,
   saveInternalTransferPair,
+  saveSwap,
   saveActivities,
   searchActivities,
   updateActivity,

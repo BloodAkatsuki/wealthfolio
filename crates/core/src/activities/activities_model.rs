@@ -5,10 +5,11 @@ use crate::activities::activities_constants::{
     ACTIVITY_SUBTYPE_NOTIONAL_DISTRIBUTION, ACTIVITY_SUBTYPE_OPTION_EXPIRY,
     ACTIVITY_SUBTYPE_POSITION_CLOSE, ACTIVITY_SUBTYPE_POSITION_OPEN, ACTIVITY_SUBTYPE_REBATE,
     ACTIVITY_SUBTYPE_REFUND, ACTIVITY_SUBTYPE_REIMBURSEMENT, ACTIVITY_SUBTYPE_RETURN_OF_CAPITAL,
-    ACTIVITY_SUBTYPE_STAKING_REWARD, ACTIVITY_TYPE_ADJUSTMENT, ACTIVITY_TYPE_BUY,
-    ACTIVITY_TYPE_CREDIT, ACTIVITY_TYPE_DEPOSIT, ACTIVITY_TYPE_DIVIDEND, ACTIVITY_TYPE_FEE,
-    ACTIVITY_TYPE_INTEREST, ACTIVITY_TYPE_SELL, ACTIVITY_TYPE_SPLIT, ACTIVITY_TYPE_TAX,
-    ACTIVITY_TYPE_TRANSFER_IN, ACTIVITY_TYPE_TRANSFER_OUT, ACTIVITY_TYPE_WITHDRAWAL,
+    ACTIVITY_SUBTYPE_STAKING_REWARD, ACTIVITY_SUBTYPE_SWAP, ACTIVITY_TYPE_ADJUSTMENT,
+    ACTIVITY_TYPE_BUY, ACTIVITY_TYPE_CREDIT, ACTIVITY_TYPE_DEPOSIT, ACTIVITY_TYPE_DIVIDEND,
+    ACTIVITY_TYPE_FEE, ACTIVITY_TYPE_INTEREST, ACTIVITY_TYPE_SELL, ACTIVITY_TYPE_SPLIT,
+    ACTIVITY_TYPE_TAX, ACTIVITY_TYPE_TRANSFER_IN, ACTIVITY_TYPE_TRANSFER_OUT,
+    ACTIVITY_TYPE_WITHDRAWAL,
 };
 use crate::activities::csv_parser::ParseConfig;
 use crate::activities::TransferLinkState;
@@ -439,6 +440,8 @@ impl NewActivity {
             ACTIVITY_SUBTYPE_RETURN_OF_CAPITAL
         } else if normalized.eq_ignore_ascii_case(ACTIVITY_SUBTYPE_NOTIONAL_DISTRIBUTION) {
             ACTIVITY_SUBTYPE_NOTIONAL_DISTRIBUTION
+        } else if normalized.eq_ignore_ascii_case(ACTIVITY_SUBTYPE_SWAP) {
+            ACTIVITY_SUBTYPE_SWAP
         } else {
             subtype
         };
@@ -883,6 +886,54 @@ pub struct InternalTransferPairRequest {
     pub notes: Option<String>,
     #[serde(default)]
     pub transfer_mode: Option<String>,
+}
+
+/// A same-account swap of one asset for another at market value.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwapRequest {
+    /// Group of an existing swap that this request replaces atomically.
+    #[serde(default)]
+    pub source_group_id: Option<String>,
+    pub account_id: String,
+    pub activity_date: String,
+    /// Currency of `from_unit_price`; both legs are booked in it.
+    pub currency: String,
+    pub from_asset: AssetResolutionInput,
+    /// Units given up, including `fee_quantity`.
+    #[serde(
+        default,
+        deserialize_with = "decimal_input_format::deserialize_option_decimal"
+    )]
+    pub from_quantity: Option<Decimal>,
+    /// Market price of one unit of the given asset at the swap.
+    #[serde(
+        default,
+        deserialize_with = "decimal_input_format::deserialize_option_decimal"
+    )]
+    pub from_unit_price: Option<Decimal>,
+    /// Units of the given asset paid as network fee.
+    #[serde(
+        default,
+        deserialize_with = "decimal_input_format::deserialize_option_decimal"
+    )]
+    pub fee_quantity: Option<Decimal>,
+    pub to_asset: AssetResolutionInput,
+    /// Units received.
+    #[serde(
+        default,
+        deserialize_with = "decimal_input_format::deserialize_option_decimal"
+    )]
+    pub to_quantity: Option<Decimal>,
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwapResponse {
+    pub sell: Activity,
+    pub buy: Activity,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

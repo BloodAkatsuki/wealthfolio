@@ -16,6 +16,8 @@ import type {
   ImportTemplateData,
   InternalTransferPairRequest,
   InternalTransferPairResponse,
+  SwapRequest,
+  SwapResponse,
   TransferMatchCandidate,
   TransferMatchCandidateRequest,
   BrokerSyncProfileData,
@@ -224,6 +226,22 @@ export const saveInternalTransferPair = async (
     });
   } catch (err) {
     logger.error("Error saving internal transfer pair.");
+    throw err;
+  }
+};
+
+export const saveSwap = async (request: SwapRequest): Promise<SwapResponse> => {
+  const payload: SwapRequest = {
+    ...request,
+    activityDate:
+      request.activityDate instanceof Date
+        ? request.activityDate.toISOString()
+        : request.activityDate,
+  };
+  try {
+    return await invoke<SwapResponse>("save_swap", { request: payload });
+  } catch (err) {
+    logger.error("Error saving swap.");
     throw err;
   }
 };
